@@ -1,0 +1,19 @@
+# 진단용: 외부 사이트가 무엇을 제공하는지 살펴보기 (사이트에 쓰지 않음, 읽기만)
+name: 외부 사이트 살펴보기
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: 살펴볼 주소들 (띄어쓰기로)
+        required: true
+jobs:
+  look:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in ${{ inputs.urls }}; do
+            echo "=========== $u"
+            curl -sSL -m 30 -A "Mozilla/5.0" -o /tmp/p -w "HTTP %{http_code} · %{size_download}B · 최종 %{url_effective}\n" "$u" || true
+            head -c 2500 /tmp/p | tr '\n' ' ' | sed 's/<script[^>]*>[^<]*<\/script>//g' | head -c 2500; echo
+            echo "--- 링크·폼:"; grep -oiE '(href|action)="[^"]{1,120}"' /tmp/p | sort -u | head -60
+          done
