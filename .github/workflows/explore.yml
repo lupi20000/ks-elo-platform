@@ -1,0 +1,13 @@
+name: 시트 구조 살펴보기
+on:
+  workflow_dispatch:
+    inputs:
+      sheets:
+        description: 시트 ID (띄어쓰기로 여러 개)
+        required: true
+jobs:
+  look:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python tools/explore_sheet.py ${{ inputs.sheets }}
