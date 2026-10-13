@@ -1,0 +1,27 @@
+name: 파이프라인 시험(임시)
+on:
+  push:
+    branches: [pipeline]
+    paths: ['.github/workflows/pipeline-test.yml']
+  workflow_dispatch:
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: KPL 탭 원본 보기
+        run: |
+          python3 - <<'PY'
+          import csv, io, urllib.request
+          S="1inAFXKnerFZm-k0OJwh4XgBA8yWVHRWD2kh8v4XDs2g"
+          for gid,n in (("451926178",90),("509675759",40),("1255520577",20),("2073186911",12)):
+              u=f"https://docs.google.com/spreadsheets/d/{S}/gviz/tq?tqx=out:csv&gid={gid}"
+              rows=list(csv.reader(io.StringIO(urllib.request.urlopen(urllib.request.Request(u,headers={"User-Agent":"Mozilla/5.0"}),timeout=60).read().decode())))
+              print("=====",gid,len(rows))
+              for i,r in enumerate(rows[:n]):
+                  while r and not r[-1]: r=r[:-1]
+                  print(i,r)
+          PY
+      - name: 명단.json
+        run: curl -sS -o /tmp/m.json "https://lupi20000.github.io/ks-clan-ladder/%EB%AA%85%EB%8B%A8.json"; head -c 600 /tmp/m.json; echo
+      - name: 카페 목록
+        run: curl -sS -A "Mozilla/5.0" "https://apis.naver.com/cafe-web/cafe2/ArticleListV2dot1.json?search.clubid=30800617&search.page=1&search.perPage=5" | head -c 3000; echo
