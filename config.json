@@ -1,0 +1,49 @@
+{
+  "_설명": "kS ELO 플랫폼 설정. 숫자를 바꾸고 build.py를 다시 돌리면 순위가 다시 계산된다.",
+  "tiers": ["Black", "Gold", "Yellow", "Red", "Violet", "Blue", "Sky", "White"],
+  "tier_seed": {"Black": 1850, "Gold": 1750, "Yellow": 1650, "Red": 1550, "Violet": 1450, "Blue": 1350, "Sky": 1250, "White": 1150},
+  "default_seed": 1450,
+  "half_life_days": 365,
+  "prior_games": 6,
+  "ranked_min_eff_games": 3,
+  "ranked_min_games": 5,
+  "league_weight_mode": "sqrt",
+  "league_weight": {
+    "ELO": 1, "前 ELO": 1,
+    "KPL": 3.5, "前 KPL": 3.5, "KPL 에결": 4, "KPL 플레이오프": 5, "1R": 3.5, "2R": 3.5, "3R": 3.5, "준PO": 5, "PO": 5, "FINAL": 5,
+    "KSL 예선": 1.5, "KSL 본선": 2.5, "前 KSL": 2,
+    "공식이벤트": 2, "前 이벤트리그": 2, "끝장전": 2, "풀리그": 1.5, "연승전": 2, "대장전": 2.5,
+    "하믹팀리그": 3, "하믹 개인리그": 2, "前 하믹": 2,
+    "클랜대항전": 0
+  },
+  "league_group": {
+    "1R": "KPL", "2R": "KPL", "3R": "KPL", "준PO": "KPL 플레이오프", "PO": "KPL 플레이오프", "FINAL": "KPL 플레이오프"
+  },
+  "adjustments": [
+    {"name": "2-1차", "date": "2024-04-27"}, {"name": "2-2차", "date": "2024-07-23"},
+    {"name": "2-3차", "date": "2024-10-14"}, {"name": "2-4차", "date": "2024-12-09"},
+    {"name": "3-1차", "date": "2025-01-25"}, {"name": "3-2차", "date": "2025-03-29"},
+    {"name": "3-3차", "date": "2025-05-24"}, {"name": "4-1차", "date": "2025-09-09"},
+    {"name": "4-2차", "date": "2025-12-26"}, {"name": "4-3차", "date": "2026-04-22"},
+    {"name": "4-4차", "date": "2026-08-07"}
+  ],
+  "promotion_defaults": {
+    "method": "boundary",
+    "window_start": "2026-08-07",
+    "min_window_games": 5,
+    "margin": 20,
+    "quota_pct": 20,
+    "quota_n": 3
+  },
+  "sources": {
+    "v5_results": {"sheet": "1AwfRScOLN07Kz_bGhhILXOsU9_VwaxlmciV7N7l4CSI", "gid": "1083796057", "label": "ELO V5 결과입력 (2022.09~2025.07)"},
+    "v5_main":    {"sheet": "1AwfRScOLN07Kz_bGhhILXOsU9_VwaxlmciV7N7l4CSI", "gid": "1234011877", "label": "ELO V5 Main"},
+    "v5_db":      {"sheet": "1AwfRScOLN07Kz_bGhhILXOsU9_VwaxlmciV7N7l4CSI", "gid": "219599250", "label": "ELO V5 DB(특이사항·닉변)"},
+    "kpl_results":{"sheet": "1inAFXKnerFZm-k0OJwh4XgBA8yWVHRWD2kh8v4XDs2g", "gid": "509675759", "label": "KPL S10 경기결과", "season": "KPL S10"},
+    "roster":     {"sheet": "1DLLVXXntzHReFE0uAZgjlCQsXDE_Db4IPDJQOboANXU", "gid": "0", "label": "클랜멤버및티어표 전체명단"},
+    "bujong":     {"sheet": "1DLLVXXntzHReFE0uAZgjlCQsXDE_Db4IPDJQOboANXU", "gid": "895463393", "label": "클랜멤버및티어표 부종"},
+    "elo_new":    {"sheet": "1SsC2NgMxva_SeS1Xo84kha41pT2bIUoZRXMGbmOxb8o", "gid": "", "label": "ELO 시트 New (2025.07~)", "parser": "v5_results"},
+    "ks_admin":   {"sheet": "11se0omVY-6LiVk3-EeqwqfXnGoMyYLAUkweyX3xKj_k", "gid": "972560098", "label": "kS 관리시트"},
+    "ladder":     {"url": "https://lupi20000.github.io/ks-clan-ladder/", "label": "kS 클랜 래더 (cwal.gg)"}
+  }
+}
