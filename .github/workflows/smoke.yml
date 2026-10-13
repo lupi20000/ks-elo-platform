@@ -1,0 +1,17 @@
+# 배포 후 점검: 사이트·관리자 서버가 실제로 응답하는지 (비밀번호는 쓰지 않음)
+name: 배포 점검
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set -u
+          S=https://ks-clan-elo.pages.dev; A=https://ks-elo-api.afterworkting.workers.dev
+          for u in "$S/" "$S/app.js" "$S/d.bin" "$S/style.css" "$S/robots.txt" "$A/" "$A/elo/recent" "$A/me"; do
+            echo "$(curl -s -o /dev/null -w '%{http_code} %{size_download}B' "$u")  $u"
+          done
+          echo "헤더:"; curl -sI "$S/" | grep -i 'x-robots\|x-frame'
+          echo "틀린 로그인(401 이어야 정상): $(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"u":"x","p":"y"}' "$A/login")"
+          echo "관리자 없이 시트목록(401 이어야 정상): $(curl -s -o /dev/null -w '%{http_code}' "$A/sources")"
+          echo "data.json 노출(404 이어야 정상): $(curl -s -o /dev/null -w '%{http_code}' "$S/data.json")"
