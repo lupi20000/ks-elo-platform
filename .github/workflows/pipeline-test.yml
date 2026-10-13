@@ -8,30 +8,22 @@ jobs:
   dump:
     runs-on: ubuntu-latest
     steps:
-      - name: 카페 메뉴
+      - name: 카페 결과입력란
         run: |
           python3 - <<'PY'
-          import json, urllib.request
+          import json, urllib.request, datetime
           def get(u):
               return urllib.request.urlopen(urllib.request.Request(u,headers={"User-Agent":"Mozilla/5.0","Referer":"https://cafe.naver.com/"}),timeout=60).read().decode()
-          for u in ("https://apis.naver.com/cafe-web/cafe2/SideMenuList?cafeId=30800617",
-                    "https://apis.naver.com/cafe-web/cafe-cafemain-api/v1.0/cafes/30800617/menus"):
+          ids=[]
+          for p in range(1,4):
+              d=json.loads(get(f"https://apis.naver.com/cafe-web/cafe2/ArticleListV2dot1.json?search.clubid=30800617&search.menuid=71&search.page={p}&search.perPage=50"))
+              r=d["message"]["result"]; print("page",p,len(r["articleList"]),r.get("hasNext"))
+              for a in r["articleList"]:
+                  ids.append(a["articleId"])
+                  print(a["articleId"], datetime.datetime.fromtimestamp(a["writeDateTimestamp"]/1000).strftime("%Y-%m-%d"), "|", a["writerNickname"], "|", a["subject"], "|", a.get("headName"), a.get("commentCount"))
+          for i in ids[:2]:
               try:
-                  t=get(u); print(u, len(t))
-                  d=json.loads(t)
-                  def walk(o):
-                      if isinstance(o,dict):
-                          if "menuId" in o and ("menuName" in o or "name" in o): print("  ", o.get("menuId"), o.get("menuName") or o.get("name"), o.get("menuType"))
-                          for v in o.values(): walk(v)
-                      elif isinstance(o,list):
-                          for v in o: walk(v)
-                  walk(d)
-              except Exception as e: print(u, "실패", e)
-          # 제목에 ELO 들어간 글 찾기 (최근 10쪽)
-          menus={}
-          for p in range(1,11):
-              d=json.loads(get(f"https://apis.naver.com/cafe-web/cafe2/ArticleListV2dot1.json?search.clubid=30800617&search.page={p}&search.perPage=50"))
-              for a in d["message"]["result"]["articleList"]:
-                  menus.setdefault((a["menuId"],a["menuName"]),[]).append(a["subject"])
-          for k,v in menus.items(): print(k, len(v), v[:4])
+                  t=get(f"https://apis.naver.com/cafe-web/cafe-articleapi/v2.1/cafes/30800617/articles/{i}?useCafeId=true")
+                  print("본문", i, t[:1500])
+              except Exception as e: print("본문 실패", i, e)
           PY
