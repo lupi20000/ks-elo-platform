@@ -1,0 +1,16 @@
+# 내려받은 원본·참고 자료(용량 큼, 저장소에 안 올림)
+원본/
+참고/
+# 자동실행 중간 산출물(상태·카페 수집 결과) — KV로 올라가거나 매번 새로 만듦
+out/
+# 자동실행이 클라우드플레어 KV에서 받아 쓰는 설정 사본
+tools/_sources.json
+tools/_cafe.json
+__pycache__/
+*.pyc
+# 시크릿
+.env
+.env.*
+*.pem
+*.key
+.dev.vars

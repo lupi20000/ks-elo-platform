@@ -1,0 +1,109 @@
+name: 매일 데이터 갱신
+# 매일 새벽(한국 05:07)에 시트·카페를 다시 읽어 site/data.json 을 새로 만들고 배포한다.
+# 05:37 은 예비 실행: 오늘 이미 갱신됐으면 아무것도 안 한다.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7 20 * * *'
+    - cron: '37 20 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      KV_NS: 3a51b16271fd4fa68a89b884ac01d0f5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: 오늘 이미 갱신했는지 확인(예비 실행일 때만)
+        id: check
+        run: |
+          today=$(TZ=Asia/Seoul date +%Y-%m-%d)
+          last=$(TZ=Asia/Seoul git log -1 --author=ks-elo-bot --date=format-local:%Y-%m-%d --format=%cd -- site/data.json || true)
+          echo "오늘 $today / 마지막 자동 갱신 ${last:-없음}"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" = "37 20 * * *" ] && [ "$last" = "$today" ]; then
+            echo "오늘 이미 갱신됨 → 건너뜀"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.skip != 'true'
+        with:
+          python-version: '3.11'
+
+      - name: 준비물 설치
+        if: steps.check.outputs.skip != 'true'
+        run: pip install numpy
+
+      - name: 관리 설정 받기(클라우드플레어 KV)
+        if: steps.check.outputs.skip != 'true' && env.CLOUDFLARE_API_TOKEN != ''
+        run: |
+          get() {  # $1 = 키, $2 = 저장할 파일, $3 = 없을 때 기본값
+            if npx --yes wrangler@3 kv key get --namespace-id="$KV_NS" --remote "$1" > "$2" 2>/dev/null \
+               && python -c "import json,sys; json.load(open(sys.argv[1], encoding='utf-8'))" "$2" 2>/dev/null; then
+              echo "$1: 받음"
+            else
+              echo "$3" > "$2"; echo "$1: 없음 → 기본값"
+            fi
+          }
+          get "elo:sources" tools/_sources.json '[]'
+          get "elo:cafe" tools/_cafe.json '{}'
+
+      - name: 카페 결과입력란 모으기
+        if: steps.check.outputs.skip != 'true'
+        continue-on-error: true
+        env:
+          ELO_CAFE_FILE: tools/_cafe.json
+          NAVER_COOKIE: ${{ secrets.NAVER_COOKIE }}
+        run: python tools/cafe.py
+
+      - name: 데이터 만들기
+        if: steps.check.outputs.skip != 'true'
+        env:
+          ELO_SOURCES_FILE: tools/_sources.json
+          KS_ADMIN_HASH: ${{ secrets.KS_ADMIN_HASH }}
+        run: python build.py
+
+      - name: 출처 상태 올리기(KV)
+        if: steps.check.outputs.skip != 'true' && env.CLOUDFLARE_API_TOKEN != '' && hashFiles('out/srcstat.json') != ''
+        continue-on-error: true
+        run: npx --yes wrangler@3 kv key put --namespace-id="$KV_NS" --remote "elo:srcstat" --path out/srcstat.json > /dev/null && echo "elo:srcstat 올림"
+
+      - name: 커밋·푸시
+        id: commit
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          git config user.name "ks-elo-bot"
+          git config user.email "ks-elo-bot@users.noreply.github.com"
+          git add site/data.json 검증-리포트.md
+          if git diff --cached --quiet; then
+            echo "바뀐 것 없음"; echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          git commit -q -m "데이터 자동 갱신 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') KST"
+          for i in 1 2 3 4 5; do
+            if git push; then echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            echo "푸시 실패 → 최신 받아서 다시 ($i)"; sleep $((i * 5))
+            git pull --rebase -X theirs || { git rebase --abort; git pull --no-rebase -X ours --no-edit; }
+          done
+          exit 1
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
