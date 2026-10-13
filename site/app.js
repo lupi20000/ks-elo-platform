@@ -40,8 +40,10 @@ function prep(data) {
   ranked = P.filter(p => p.st === "A" && !p.off && isRanked(p)).sort((a, b) => b.r - a.r);
   ranked.forEach((p, n) => rankAll[p.i] = n + 1);
   T.forEach(t => ranked.filter(p => p.tier === t).forEach((p, n) => rankTier[p.i] = n + 1));
-  $("#stamp").innerHTML = `UPDATED <b>${esc(D.meta.updated)}</b>`;
-  $("#foot").innerHTML = `kS CLAN ELO · 세트 ${G.length.toLocaleString()} · 선수 ${P.filter(p => !p.off).length.toLocaleString()} · 시간감쇠 반감기 ${D.meta.halfLife}일 · <a href="#/about" style="text-decoration:underline">계산 기준</a>`;
+  $("#stamp").innerHTML = `마지막 갱신<b>${esc(D.meta.updated)}</b>`;
+  $("#foot").innerHTML = `kS CLAN ELO · 세트 ${G.length.toLocaleString()} · 선수 ${P.filter(p => !p.off).length.toLocaleString()} · 시간감쇠 반감기 ${D.meta.halfLife}일 · <a href="#/about">계산 기준</a> · <a href="#/admin">운영진</a>`;
+  const tk = G.slice(-24).reverse().map(g => `<span class="it"><em>${fmtD(g[0]).slice(5)}</em><em>${esc(D.leagues[g[1]].name)}</em><b class="w">${esc(P[g[3]].id)}</b><em>def.</em><b>${esc(P[g[4]].id)}</b>${g[2] >= 0 ? `<em>· ${esc(D.maps[g[2]])}</em>` : ""}</span>`).join("");
+  if (tk) $("#ticker").innerHTML = `<span class="tag">최근 경기</span><div class="rail"><div class="run">${tk}${tk}</div></div>`;
 }
 
 /* ---------- 라우터 ---------- */
@@ -51,6 +53,7 @@ function route() {
   const name = r || "rank";
   document.querySelectorAll("[data-r]").forEach(a => a.classList.toggle("on", a.dataset.r === (name === "p" ? "rank" : name)));
   window.scrollTo(0, 0);
+  app.style.removeProperty("--tc");
   ({ rank: viewRank, p: () => viewPlayer(decodeURIComponent(rest.join("/"))), stats: () => viewStats(rest[0]),
      vs: () => viewVs(rest.map(decodeURIComponent)), ladder: viewLadder, admin: viewAdmin, about: viewAbout }[name] || viewRank)();
 }
@@ -64,14 +67,14 @@ function viewRank() {
   const pod = top.map((p, n) => `
     <a class="pod ${n ? "" : "first"}" style="--tc:${tc(p.tier)}" href="${pLink(p.i)}">
       <div class="pos">${n + 1}</div>
-      <div class="kicker">NO.${n + 1}</div>
-      <div class="who" style="margin-top:8px">${esc(p.id)} ${raceB(p.race)} ${tierB(p.tier)}</div>
+      <div class="kicker">${n ? `${n + 1}위` : "클랜 1위"} · ${esc(p.tier || "미배정")} #${rankTier[p.i] || "–"}</div>
+      <div class="who"><span class="nm">${esc(p.id)}</span> ${raceB(p.race)} ${tierB(p.tier)}</div>
       <div class="rt num">${r0(p.r)}<small>ELO</small></div>
       <div class="sub"><span>${p.w}승 ${p.l}패</span><span>${pctS(p.w, p.w + p.l)}</span><span>${dl(delta(p))}</span></div>
     </a>`).join("");
   app.innerHTML = `${gap}
-    <div class="h"><h2><small>현재 클랜원 · 전 리그 통합 · 최근 경기일수록 가중</small>Power Ranking</h2>
-      <div class="aside">정식 ${ranked.length}명</div></div>
+    <div class="h"><h2><small>현재 클랜원 · 전 리그 통합 · 최근 경기일수록 무겁게</small>Power Ranking</h2>
+      <div class="aside"><b class="num">${ranked.length}</b>정식 순위 선수</div></div>
     <div class="podium">${pod}</div>
     <div class="bar">
       <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
@@ -89,7 +92,7 @@ function viewRank() {
         <span class="chip ${RS.off ? "on" : ""}" id="offc">부종 포함</span></div>
     </div>
     <div class="panel scroll"><table class="tbl" id="rt"></table></div>
-    <button class="more" id="more">MORE</button>`;
+    <button class="more" id="more">더 보기</button>`;
   $("#st").value = RS.st;
   $("#q").oninput = e => { RS.q = e.target.value; RS.limit = 60; drawRank(); };
   $("#st").onchange = e => { RS.st = e.target.value; RS.limit = 60; drawRank(); };
@@ -161,7 +164,7 @@ function chart(h, opts = {}) {
   const area = `M${X(h[0][0])},${H - pb}L${pts.join("L")}L${X(h[h.length - 1][0])},${H - pb}Z`;
   const last = h[h.length - 1];
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="aspect-ratio:${W}/${H}">
-    <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c6ff3d" stop-opacity=".22"/><stop offset="1" stop-color="#c6ff3d" stop-opacity="0"/></linearGradient></defs>
+    <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-opacity=".22"/><stop offset="1" stop-opacity="0"/></linearGradient></defs>
     <g class="grid">${grid}</g>${adj}${xl}<path class="ar" d="${area}"/><polyline class="ln" points="${pts.join(" ")}"/>
     <circle class="dot" cx="${X(last[0])}" cy="${Y(last[1])}" r="4"/></svg>`;
 }
@@ -185,10 +188,12 @@ function viewPlayer(k) {
   const sibs = P.filter(q => q.base === p.base && q.k !== p.k);
   const peak = p.h.length ? Math.max(...p.h.map(x => x[1])) : null;
   const lad = p.lad;
-  app.innerHTML = `<a class="back" onclick="history.length>1?history.back():location.hash='#/'">← 목록</a>
-  <section class="hero" style="--tc:${tc(p.tier)}">
+  app.style.setProperty("--tc", tc(p.tier));
+  app.innerHTML = `<a class="back" onclick="history.length>1?history.back():location.hash='#/'">← 목록으로</a>
+  <section class="hero">
+    <div class="wm" aria-hidden="true">${esc(p.tier || "kS")}</div>
     <div>
-      <div class="kicker">${p.off ? "OFF-RACE PROFILE" : "PLAYER"}</div>
+      <div class="kicker">${p.off ? "부종 프로필" : "선수"} · 기록 ${p.first ? p.first.slice(0, 4) : "—"}–${p.last ? p.last.slice(0, 4) : "—"}</div>
       <div class="id">${esc(p.id)}</div>
       <div class="meta">${tierB(p.tier)} ${raceB(p.race)} <span class="st ${p.st}">${ST_KO[p.st]}</span>
         ${isRanked(p) ? "" : `<span class="prov">잠정 — 유효경기 ${p.eff.toFixed(1)}</span>`}
@@ -197,7 +202,7 @@ function viewPlayer(k) {
     </div>
     <div class="big">
       <div class="kv acc"><b class="num">${r0(p.r)}</b><span>ELO</span></div>
-      <div class="kv"><b class="num">${rankAll[i] ? "#" + rankAll[i] : "—"}</b><span>클랜</span></div>
+      <div class="kv"><b class="num">${rankAll[i] ? "#" + rankAll[i] : "—"}</b><span>클랜 순위</span></div>
       <div class="kv"><b class="num">${rankTier[i] ? "#" + rankTier[i] : "—"}</b><span>${esc(p.tier || "티어")} 내</span></div>
     </div>
   </section>
@@ -314,7 +319,7 @@ function viewStats(tab = "league") {
     const m0y = +D.months[0].slice(0, 4), m0m = +D.months[0].slice(5);
     G.forEach(g => { const d = day2date(g[0]), k = (d.getFullYear() - m0y) * 12 + d.getMonth() + 1 - m0m; if (k >= 0 && k < nM) { gm[k]++; pm[k].add(g[3]); pm[k].add(g[4]); } });
     const max = Math.max(...gm), W = 720, H = 200, bw = (W - 40) / nM;
-    const bars = gm.map((v, k) => `<rect x="${30 + k * bw}" y="${H - 20 - (H - 40) * v / max}" width="${Math.max(1, bw - 2)}" height="${(H - 40) * v / max}" fill="${v ? "#c6ff3d" : "#333"}" opacity=".85"><title>${D.months[k]} · ${v}세트 · ${pm[k].size}명</title></rect>`).join("");
+    const bars = gm.map((v, k) => `<rect x="${30 + k * bw}" y="${H - 20 - (H - 40) * v / max}" width="${Math.max(1, bw - 2)}" height="${(H - 40) * v / max}" class="bar ${v ? "" : "z"}"><title>${D.months[k]} · ${v}세트 · ${pm[k].size}명</title></rect>`).join("");
     const yl = D.months.map((m, k) => m.endsWith("-01") ? `<text x="${30 + k * bw}" y="${H - 4}">${m.slice(0, 4)}</text>` : "").join("");
     sv.innerHTML = `<div class="card"><h3>월별 세트 수<em>막대에 손을 올리면 상세</em></h3><svg class="chart" viewBox="0 0 ${W} ${H}" style="aspect-ratio:${W}/${H}">${bars}${yl}</svg>
       ${D.meta.gaps.length ? `<div class="notice red" style="margin-top:12px">${D.meta.gaps.map(esc).join("<br>")}</div>` : ""}</div>
