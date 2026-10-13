@@ -318,6 +318,37 @@ export default {
       return 답({ ok: true });
     }
 
+    if (길 === '/elo/submits/edit' && req.method === 'POST') {
+      const L = await 읽기(env, 'elo:submits', []);
+      const x = L.find(v => v.k === body.k);
+      if (!x) return 답({ ok: false, msg: '그 결과를 찾지 못했습니다.' }, 404);
+      for (const f of ['date', 'league', 'map', 'winner', 'loser']) if (body[f] != null) x[f] = 짧게(body[f], 40);
+      for (const f of ['wrace', 'lrace']) if (body[f] != null) x[f] = /^[PTZ]?$/i.test(body[f]) ? String(body[f]).toUpperCase() : '';
+      x.edited = Date.now();
+      await 쓰기(env, 'elo:submits', L);
+      return 답({ ok: true });
+    }
+
+    // 이미 반영된 경기 고치기·지우기 (시트·카페·입력양식 어디서 왔든). 다음 새벽 갱신 때 적용
+    if (길 === '/fix' && req.method === 'GET') return 답({ ok: true, list: await 읽기(env, 'elo:fix', []) });
+    if (길 === '/fix/save' && req.method === 'POST') {
+      const sig = 짧게(body.sig, 200);
+      if (!sig) return 답({ ok: false, msg: '고칠 경기를 고르세요.' }, 400);
+      const act = body.act === 'del' ? 'del' : 'edit';
+      const d = body.data || {};
+      const data = act === 'edit' ? { date: 짧게(d.date, 10), league: 짧게(d.league, 30), map: 짧게(d.map, 40), winner: 짧게(d.winner, 30), loser: 짧게(d.loser, 30), wrace: 짧게(d.wrace, 1), lrace: 짧게(d.lrace, 1) } : null;
+      const L = (await 읽기(env, 'elo:fix', [])).filter(f => f.sig !== sig);
+      L.push({ sig, act, data, note: 짧게(body.note, 100), view: body.view || null, t: Date.now() });
+      if (L.length > 3000) return 답({ ok: false, msg: '수정 목록이 너무 많습니다.' }, 400);
+      await 쓰기(env, 'elo:fix', L);
+      return 답({ ok: true, list: L });
+    }
+    if (길 === '/fix/del' && req.method === 'POST') {
+      const L = (await 읽기(env, 'elo:fix', [])).filter(f => f.sig !== body.sig);
+      await 쓰기(env, 'elo:fix', L);
+      return 답({ ok: true, list: L });
+    }
+
     if (길 === '/ladder/save' && req.method === 'POST') {
       const act = body.act === 'del' ? 'del' : 'add';
       const toon = 짧게(body.toon, 40);

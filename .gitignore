@@ -16,3 +16,4 @@ __pycache__/
 .dev.vars
 tools/_submits.json
 dist/
+tools/_fix.json

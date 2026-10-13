@@ -267,6 +267,53 @@ def load_cafe_games(path=None, label="카페 Elo 결과입력란", name="cafe", 
     return out
 
 
+# ───── 운영진이 고친 경기 (ELO_FIX_FILE) ─────
+def game_sig(g):
+    """경기 하나를 가리키는 표식 — 화면(app.js)의 sig() 와 같은 규칙"""
+    return f"{g['d'].isoformat()}|{g['lg']}|{g['wk']}|{g['lk']}|{g['map']}"
+
+
+def apply_fixes(games, pkey):
+    """운영진 화면에서 '삭제'·'수정'한 경기를 반영한다. 표식 = 원래 값 + 같은 표식 중 몇 번째(#n)"""
+    seen = Counter()
+    for g in games:
+        b = game_sig(g)
+        g["occ"] = seen[b]
+        seen[b] += 1
+    path = os.environ.get("ELO_FIX_FILE")
+    try:
+        fixes = json.load(open(path, encoding="utf-8")) if path and os.path.exists(path) else []
+    except Exception:
+        fixes = []
+    by = {f.get("sig"): f for f in fixes if isinstance(f, dict) and f.get("sig")}
+    if not by:
+        return games
+    out, done = [], 0
+    for g in games:
+        f = by.get(f"{game_sig(g)}#{g['occ']}")
+        if not f:
+            out.append(g); continue
+        done += 1
+        if f.get("act") == "del":
+            continue
+        x = f.get("data") or {}
+        d = sheetsrc.parse_date(x.get("date")) if x.get("date") else None
+        if d: g["d"] = d
+        if x.get("league"): g["lg"] = x["league"].strip()
+        if "map" in x: g["map"] = (x.get("map") or "").strip()
+        if x.get("winner"): g["w"] = x["winner"].strip()
+        if x.get("loser"): g["l"] = x["loser"].strip()
+        if x.get("wrace"): g["wr"] = clean_race(x["wrace"])
+        if x.get("lrace"): g["lr"] = clean_race(x["lrace"])
+        g["wk"] = pkey(g["w"], g["wr"], g["wt"]); g["lk"] = pkey(g["l"], g["lr"], g["lt"])
+        g["src"] += " (운영진 수정)"
+        if g["wk"] != g["lk"]:
+            out.append(g)
+    print(f"운영진 수정 반영: {done}건 (등록 {len(by)}건)")
+    out.sort(key=lambda g: g["d"])
+    return out
+
+
 # ───────────────────────── 2) 정규화 ─────────────────────────
 ISSUES = defaultdict(list)
 
@@ -623,6 +670,7 @@ def main():
         if g["wk"] == g["lk"]:
             ISSUES["self_match"].append(f"{g['src']} {g['d']} {g['w']}")
     games = [g for g in games if g["wk"] != g["lk"]]
+    games = apply_fixes(games, pkey)
     for k, v in roster_info.items():
         display[k] = v["id"]          # 현재 표기 우선
 
@@ -746,7 +794,7 @@ def main():
     sidx = {s: i for i, s in enumerate(srcs)}
     rc = {"": -1, "P": 0, "T": 1, "Z": 2}
     G = [[int(day[j]), int(LG[j]), midx.get(g["map"], -1), int(WI[j]), int(LI[j]),
-          rc[g["wr"]], rc[g["lr"]], g["wt"], g["lt"], sidx[g["src"]]] for j, g in enumerate(games)]
+          rc[g["wr"]], rc[g["lr"]], g["wt"], g["lt"], sidx[g["src"]], int(g.get("occ", 0))] for j, g in enumerate(games)]
 
     gaps = []
     names = {s["name"]: s for s in SRC_STATUS}

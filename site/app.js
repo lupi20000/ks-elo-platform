@@ -26,6 +26,13 @@ document.addEventListener("keydown", e => {
 });
 try { console.log("%ckS CLAN ELO", "font:900 28px sans-serif;color:#e2a24a", "\n이 사이트의 디자인·코드·데이터는 kS 클랜 소유입니다. 무단 복제·AI 학습·재현을 금지합니다."); } catch { }
 
+/* ---------- 흰색 / 어두운 화면 ---------- */
+$("#theme").addEventListener("click", () => {
+  const light = document.documentElement.getAttribute("data-ks") !== "light";
+  if (light) document.documentElement.setAttribute("data-ks", "light"); else document.documentElement.removeAttribute("data-ks");
+  try { localStorage.setItem("ksTheme", light ? "light" : "dark"); } catch { }
+});
+
 /* ---------- 첫 접속 인트로 ---------- */
 (function intro() {
   let seen = false;
@@ -37,7 +44,7 @@ try { console.log("%ckS CLAN ELO", "font:900 28px sans-serif;color:#e2a24a", "\n
   document.body.appendChild(el);
   const done = () => el.remove();
   el.addEventListener("click", done);
-  setTimeout(done, 2900);
+  setTimeout(done, 4900);
 })();
 
 /* ---------- 공통 ---------- */
@@ -61,6 +68,8 @@ const delta = p => {
 };
 const dl = v => v == null ? `<span class="dl z">NEW</span>` : Math.abs(v) < 0.5 ? `<span class="dl z">—</span>` :
   `<span class="dl ${v > 0 ? "up" : "dn"}">${v > 0 ? "▲" : "▼"}${Math.abs(r0(v))}</span>`;
+const isoD = d => day2date(d).toISOString().slice(0, 10);
+const sig = g => `${isoD(g[0])}|${D.leagues[g[1]].name}|${P[g[3]].k}|${P[g[4]].k}|${g[2] >= 0 ? D.maps[g[2]] : ""}#${g[10] || 0}`;
 const mapN = g => g[2] >= 0 && D.maps[g[2]] ? D.maps[g[2]] : "확인불가";
 const expect = (a, b) => 1 / (1 + Math.pow(10, (b - a) / 400));
 const tmC = n => teamColor[n] || "var(--brass2)";
@@ -117,7 +126,7 @@ function viewRank() {
       <div class="sub"><span>${p.w}승 ${p.l}패</span><span>${pctS(p.w, p.w + p.l)}</span><span>${dl(delta(p))}</span></div>
     </a>`).join("");
   app.innerHTML = `${gap}
-    <div class="h"><h2><small>현재 클랜원 · 전 리그 통합 · 최근 경기일수록 무겁게</small>Power <span class="gold">Ranking</span></h2>
+    <div class="h"><h2><small>현재 클랜원 · 전 리그 통합 · 최근 경기일수록 무겁게</small><span class="gold">ELO</span> Power Ranking</h2>
       <div class="aside"><b class="num gold">${ranked.length}</b>정식 순위 선수</div></div>
     <a class="cta" href="#/input"><span><b>경기 끝났나요?</b> ELO 결과를 바로 입력하세요 · 다음 날 새벽 순위에 반영</span><i>결과 입력 →</i></a>
     <div class="podium">${pod}</div>
@@ -394,7 +403,7 @@ function viewKPLTeam(name) {
   const ace = mem.filter(m => m.r && (m.r.aceW + m.r.aceL)).sort((a, b) => b.r.aceW - a.r.aceW)[0];
   const tierCnt = T.map(tt => ({ tt, n: mem.filter(m => m.tier === tt).length })).filter(x => x.n);
   app.innerHTML = `<a class="back" href="#/kpl">← KPL</a>
-    <div class="kpl-head" style="background:radial-gradient(600px 300px at 0% 0%,color-mix(in srgb,${tmC(name)} 45%,transparent),transparent 70%),radial-gradient(700px 380px at 100% 100%,rgba(28,52,120,.55),transparent 70%),linear-gradient(160deg,#3b1427,#171427)">
+    <div class="kpl-head" style="background:radial-gradient(600px 300px at 0% 0%,color-mix(in srgb,${tmC(name)} 45%,transparent),transparent 70%),radial-gradient(700px 380px at 100% 100%,rgba(28,52,120,.55),transparent 70%),linear-gradient(160deg,var(--heroA),var(--heroB))">
       <div class="kicker" style="color:${tmC(name)}">${esc(K.season)} · ${s.rank ? s.rank + "위" : ""}</div>
       <div class="season">${esc(name)}</div>
       <div class="meta"><span>팀 전적 <b>${s.w ?? 0}승 ${s.l ?? 0}패</b></span><span>세트 <b>${s.setW ?? 0}-${s.setL ?? 0}</b></span><span>득실 <b>${s.diff > 0 ? "+" : ""}${s.diff ?? 0}</b></span>
@@ -472,7 +481,7 @@ function viewStats(tab = "league") {
       G.forEach(g => { add(tot, g); const y = day2date(g[0]).getFullYear(); add(years[y] = years[y] || mk(), g); });
       const card = (o, title) => `<div class="card"><h3>${title}<em>${o.n.toLocaleString()}세트</em></h3><div class="mu">
         ${pairs.map(([a, b]) => { const s = o[a + b]; return `<div class="row"><span class="lbl"><span style="color:var(--${a})">${a}</span>v<span style="color:var(--${b})">${b}</span></span>
-        <div class="track" style="--c:var(--${a});background:color-mix(in srgb,var(--${b}) 55%,#1b1018)"><i style="width:${pct(s.w, s.n) || 50}%"></i></div>
+        <div class="track" style="--c:var(--${a});background:color-mix(in srgb,var(--${b}) 55%,var(--slab3))"><i style="width:${pct(s.w, s.n) || 50}%"></i></div>
         <span class="v"><b>${pctS(s.w, s.n)}</b> ${s.n}</span></div>`; }).join("")}</div></div>`;
       const pop = { P: 0, T: 0, Z: 0 }; ranked.forEach(p => p.race && pop[p.race]++);
       const avg = r => { const L = ranked.filter(p => p.race === r); return L.length ? r0(L.reduce((s, p) => s + p.r, 0) / L.length) : "—"; };
@@ -627,13 +636,13 @@ async function api(path, body) {
 async function viewAdmin(tab) {
   if (!TOK.get() || !(await api("/me")).ok) return adminGate();
   tab = tab || "src";
-  const tabs = { src: "시트 등록", subs: "입력된 결과", cafe: "카페 수집", promo: "등급조정", lad: "래더 계정", health: "데이터 상태" };
+  const tabs = { src: "시트 등록", fix: "경기 수정", subs: "입력된 결과", cafe: "카페 수집", promo: "등급조정", lad: "래더 계정", health: "데이터 상태" };
   app.innerHTML = `<div class="h"><h2><small>운영진 전용 · 이 화면의 내용은 공개 화면에 나오지 않습니다</small><span class="gold">운영진</span> <span class="kr">관리</span></h2>
     <div class="aside"><button class="btn sm" id="logout">로그아웃</button></div></div>
     <div class="seg">${Object.entries(tabs).map(([k, v]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${v}</button>`).join("")}</div><div id="av"></div>`;
   $(".seg").onclick = e => { const t = e.target.dataset.tab; if (t) location.hash = `#/admin/${t}`; };
   $("#logout").onclick = async () => { await api("/logout", {}); TOK.clear(); location.hash = "#/"; };
-  ({ src: adminSources, subs: adminSubs, cafe: adminCafe, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || adminSources)($("#av"));
+  ({ src: adminSources, fix: adminFix, subs: adminSubs, cafe: adminCafe, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || adminSources)($("#av"));
 }
 function adminGate() {
   app.innerHTML = `<div class="gate"><div class="kicker">ADMIN</div><h2>운영진</h2><p>관리자 아이디와 비밀번호를 넣어 주세요.</p>
@@ -923,16 +932,79 @@ function viewInput() {
     if (r.ok) { $("#i_w").value = $("#i_l").value = ""; $("#i_wr").value = $("#i_lr").value = ""; recent(); }
   };
 }
+const LEAGUES = () => ["ELO", ...D.leagues.map(l => l.name).filter(n => n !== "ELO"), "KTL"].filter((x, i, a) => a.indexOf(x) === i);
+function gameForm(v) {
+  const races = sel => `<option value="">-</option>${RN.map(r => `<option ${sel === r ? "selected" : ""}>${r}</option>`).join("")}`;
+  return `<div class="form-grid c7 gf" style="padding:10px 0">
+    <div class="fld"><label>날짜</label><input data-f="date" type="date" value="${esc(v.date)}"></div>
+    <div class="fld"><label>리그</label><select data-f="league">${LEAGUES().map(l => `<option ${l === v.league ? "selected" : ""}>${esc(l)}</option>`).join("")}${LEAGUES().includes(v.league) ? "" : `<option selected>${esc(v.league)}</option>`}</select></div>
+    <div class="fld"><label>맵</label><select data-f="map"><option value="">확인불가</option>${D.maps.map(m => `<option ${m === v.map ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></div>
+    <div class="fld"><label>승자</label><input data-f="winner" value="${esc(v.winner)}"></div>
+    <div class="fld"><label>승자 종족</label><select data-f="wrace">${races(v.wrace)}</select></div>
+    <div class="fld"><label>패자</label><input data-f="loser" value="${esc(v.loser)}"></div>
+    <div class="fld"><label>패자 종족</label><select data-f="lrace">${races(v.lrace)}</select></div>
+    <div class="btns" style="grid-column:1/-1;margin:0"><button class="btn pri sm" data-save="1">저장</button><button class="btn sm" data-cancel="1">취소</button><span class="msg gm"></span></div></div>`;
+}
+const readForm = el => { const o = {}; el.querySelectorAll("[data-f]").forEach(x => o[x.dataset.f] = x.value.trim()); return o; };
+const validGame = o => !/^[A-Za-z0-9_.\-]{2,30}$/.test(o.winner) || !/^[A-Za-z0-9_.\-]{2,30}$/.test(o.loser) ? "아이디는 영어·숫자로만" : o.winner.toLowerCase() === o.loser.toLowerCase() ? "승자와 패자가 같습니다" : !o.date ? "날짜를 넣어 주세요" : "";
 async function adminSubs(el) {
   el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
   const r = await api("/elo/submits");
   if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
-  el.innerHTML = `<p class="msg">사이트 입력 양식으로 들어온 결과입니다 (최근 500건). 잘못 들어온 것은 지우면 다음 갱신 때 빠집니다.</p>
+  el.innerHTML = `<p class="msg">사이트 입력 양식으로 들어온 결과입니다 (최근 500건). 고치거나 지우면 다음 새벽 갱신 때 순위에 반영됩니다.</p>
     <div class="panel scroll">${r.list.length ? `<table class="mini" id="sl"><tr><th>날짜</th><th>리그</th><th>승자</th><th>패자</th><th>맵</th><th>들어온 때</th><th></th></tr>
-    ${r.list.map(x => `<tr><td class="num">${esc(x.date)}</td><td>${esc(x.league)}</td><td><b>${esc(x.winner)}</b> ${raceB(x.wrace)}</td><td>${esc(x.loser)} ${raceB(x.lrace)}</td><td>${esc(x.map || "확인불가")}</td>
-      <td class="num">${new Date(x.t).toLocaleString("ko-KR")}</td><td><button class="btn sm del" data-k="${esc(x.k)}">지우기</button></td></tr>`).join("")}</table>` : `<div class="empty">아직 없습니다</div>`}</div>`;
-  el.onclick = async e => { const b = e.target.closest("[data-k]"); if (!b) return; if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 지우기"; return; }
-    await api("/elo/submits/del", { k: b.dataset.k }); adminSubs(el); };
+    ${r.list.map(x => `<tr data-k="${esc(x.k)}"><td class="num">${esc(x.date)}</td><td>${esc(x.league)}</td><td><b>${esc(x.winner)}</b> ${raceB(x.wrace)}</td><td>${esc(x.loser)} ${raceB(x.lrace)}</td><td>${esc(x.map || "확인불가")}</td>
+      <td class="num">${new Date(x.t).toLocaleString("ko-KR")}${x.edited ? ` <span class="pill">수정됨</span>` : ""}</td><td style="white-space:nowrap"><button class="btn sm" data-edit="1">수정</button> <button class="btn sm del" data-del="1">지우기</button></td></tr>
+      <tr class="ed" hidden><td colspan="7"></td></tr>`).join("")}</table>` : `<div class="empty">아직 없습니다</div>`}</div>`;
+  el.onclick = async e => {
+    const row = e.target.closest("tr[data-k]") || e.target.closest("tr.ed")?.previousElementSibling; if (!row) return;
+    const k = row.dataset.k, x = r.list.find(v => v.k === k), ed = row.nextElementSibling;
+    if (e.target.closest("[data-del]")) { const b = e.target.closest("[data-del]"); if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 지우기"; return; } await api("/elo/submits/del", { k }); return adminSubs(el); }
+    if (e.target.closest("[data-edit]")) { ed.hidden = false; ed.firstElementChild.innerHTML = gameForm(x); return; }
+    if (e.target.closest("[data-cancel]")) { ed.hidden = true; return; }
+    if (e.target.closest("[data-save]")) { const o = readForm(ed), bad = validGame(o); if (bad) { ed.querySelector(".gm").className = "msg no gm"; ed.querySelector(".gm").textContent = bad; return; }
+      const s2 = await api("/elo/submits/edit", { k, ...o }); if (s2.ok) adminSubs(el); else ed.querySelector(".gm").textContent = s2.msg; }
+  };
+}
+async function adminFix(el) {
+  el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
+  const r = await api("/fix");
+  if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
+  const fixes = r.list || [];
+  el.innerHTML = `<div class="notice"><b>!</b><div>이미 순위에 들어간 경기(시트·카페·입력 양식 어디서 왔든)를 고치거나 지웁니다. 잘못 입력됐거나 조작이 의심되는 경기에 쓰세요. <b>다음 새벽 갱신 때</b> 순위가 다시 계산됩니다.</div></div>
+    <div class="h3">고친 경기<em>${fixes.length}건 · 되돌리면 원래대로</em></div>
+    <div class="panel scroll">${fixes.length ? `<table class="mini" id="fl"><tr><th>구분</th><th>원래 경기</th><th>바꾼 내용</th><th>메모</th><th></th></tr>
+      ${fixes.slice().reverse().map(f => `<tr><td>${f.act === "del" ? `<span class="dec dn">삭제</span>` : `<span class="dec up">수정</span>`}</td><td>${esc(f.view || f.sig.split("#")[0].replaceAll("|", " · "))}</td>
+        <td>${f.data ? esc(`${f.data.date} ${f.data.league} ${f.data.winner} 승 (vs ${f.data.loser}) ${f.data.map || "확인불가"}`) : "—"}</td><td>${esc(f.note || "")}</td>
+        <td><button class="btn sm" data-undo="${esc(f.sig)}">되돌리기</button></td></tr>`).join("")}</table>` : `<div class="empty">아직 고친 경기가 없습니다</div>`}</div>
+    <div class="h3">경기 찾기<em>선수 아이디로 검색 · 최근 순 80경기</em></div>
+    <div class="bar"><label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="fq" placeholder="선수 아이디 (예: rox)" autocomplete="off"></label>
+      <select class="sel" id="fl2" aria-label="리그"><option value="">전체 리그</option>${D.leagues.map((l, k) => `<option value="${k}">${esc(l.name)}</option>`).join("")}</select></div>
+    <div class="panel scroll"><table class="mini" id="gl"><tbody><tr><td class="empty">아이디를 넣으면 경기가 나옵니다</td></tr></tbody></table></div>`;
+  const fixed = new Map(fixes.map(f => [f.sig, f]));
+  const view = g => `${isoD(g[0])} ${D.leagues[g[1]].name} ${P[g[3]].id} 승 (vs ${P[g[4]].id}) ${mapN(g)}`;
+  const draw = () => {
+    const q = $("#fq").value.trim().toLowerCase(), lg = $("#fl2").value;
+    if (q.length < 2) return;
+    const ps = new Set(P.filter(p => p.id.toLowerCase() === q || p.base === q).map(p => p.i));
+    if (!ps.size) P.filter(p => p.id.toLowerCase().includes(q)).slice(0, 3).forEach(p => ps.add(p.i));
+    const js = [...new Set([...ps].flatMap(i => byP[i]))].filter(j => lg === "" || G[j][1] === +lg).sort((a, b) => b - a).slice(0, 80);
+    $("#gl tbody").innerHTML = js.map(j => { const g = G[j], sg = sig(g), f = fixed.get(sg);
+      return `<tr data-j="${j}"><td class="num">${isoD(g[0])}</td><td>${esc(D.leagues[g[1]].name)}</td><td><b>${esc(P[g[3]].id)}</b> ${raceB(RN[g[5]])}</td><td>${esc(P[g[4]].id)} ${raceB(RN[g[6]])}</td><td>${esc(mapN(g))}</td><td style="color:var(--ink3);font-size:11px">${esc(D.srcs?.[g[9]] || "")}</td>
+        <td style="white-space:nowrap">${f ? `<span class="pill wait">${f.act === "del" ? "삭제 예정" : "수정 예정"}</span>` : `<button class="btn sm" data-edit="1">수정</button> <button class="btn sm del" data-del="1">삭제</button>`}</td></tr><tr class="ed" hidden><td colspan="7"></td></tr>`; }).join("") || `<tr><td class="empty">경기가 없습니다</td></tr>`;
+  };
+  $("#fq").oninput = draw; $("#fl2").onchange = draw;
+  el.onclick = async e => {
+    const u = e.target.closest("[data-undo]"); if (u) { await api("/fix/del", { sig: u.dataset.undo }); return adminFix(el); }
+    const row = e.target.closest("tr[data-j]") || e.target.closest("tr.ed")?.previousElementSibling; if (!row || !row.dataset.j) return;
+    const g = G[+row.dataset.j], ed = row.nextElementSibling, sg = sig(g);
+    if (e.target.closest("[data-del]")) { const b = e.target.closest("[data-del]"); if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 삭제"; return; }
+      const s2 = await api("/fix/save", { sig: sg, act: "del", view: view(g) }); if (s2.ok) adminFix(el); return; }
+    if (e.target.closest("[data-edit]")) { ed.hidden = false; ed.firstElementChild.innerHTML = gameForm({ date: isoD(g[0]), league: D.leagues[g[1]].name, map: g[2] >= 0 ? D.maps[g[2]] : "", winner: P[g[3]].id, loser: P[g[4]].id, wrace: RN[g[5]] || "", lrace: RN[g[6]] || "" }); return; }
+    if (e.target.closest("[data-cancel]")) { ed.hidden = true; return; }
+    if (e.target.closest("[data-save]")) { const o = readForm(ed), bad = validGame(o); if (bad) { ed.querySelector(".gm").className = "msg no gm"; ed.querySelector(".gm").textContent = bad; return; }
+      const s2 = await api("/fix/save", { sig: sg, act: "edit", data: o, view: view(g) }); if (s2.ok) adminFix(el); else ed.querySelector(".gm").textContent = s2.msg; }
+  };
 }
 
 /* ---------- 기준 ---------- */
