@@ -493,7 +493,7 @@ function viewStats(tab = "league") {
         <tr><th></th>${T.map(t => `<th style="color:${tc(t)}">${t.slice(0, 3)}</th>`).join("")}</tr>
         ${T.map((t, a) => `<tr><th style="color:${tc(t)};text-align:right">${t.slice(0, 3)}</th>${T.map((_, b) => a === b ? `<td style="background:rgba(0,0,0,.25)"></td>` : cell(M[a][b])).join("")}</tr>`).join("")}
       </table></div><p class="legend">시트에 기록된 '경기 당시' 티어 기준. 5세트 미만 칸은 생략.</p></div>
-      <div class="card"><h3>티어별 인원<em>정식 순위 선수</em></h3><div class="mu">${cnt.map(x => `<div class="row"><span class="lbl" style="color:${tc(x.t)}">${x.t}</span><div class="track" style="--c:${tc(x.t)}"><i style="width:${100 * x.n / Math.max(1, ...cnt.map(c => c.n))}%"></i></div><span class="v"><b>${x.n}</b>명</span></div>`).join("")}</div></div></div>`;
+      <div class="card"><h3>티어별 인원<em>정식 순위 선수 ${cnt.reduce((a, c) => a + c.n, 0)}명</em></h3>${tierBell(cnt)}</div></div>`;
   }
   if (tab === "race" || tab === "map") {
     const pairs = [["P", "T"], ["P", "Z"], ["T", "Z"]];
@@ -522,6 +522,23 @@ function viewStats(tab = "league") {
         </tbody></table></div><p class="legend">20세트 이상 맵 · 수치는 앞 종족 승률 · 55% 이상/45% 이하는 유리 종족 색</p>`;
     }
   }
+}
+
+function tierBell(cnt) {
+  const W = 640, H = 260, pl = 10, pr = 10, pt = 28, pb = 40, n = cnt.length, bw = (W - pl - pr) / n, max = Math.max(1, ...cnt.map(c => c.n));
+  const X = k => pl + bw * k + bw / 2, Y = v => pt + (1 - v / max) * (H - pt - pb);
+  const pts = cnt.map((c, k) => [X(k), Y(c.n)]);
+  let d = `M${pts[0][0]},${pts[0][1]}`;           // 막대 꼭대기를 잇는 부드러운 곡선(카트멀-롬 → 베지어)
+  for (let k = 0; k < pts.length - 1; k++) {
+    const p0 = pts[k - 1] || pts[k], p1 = pts[k], p2 = pts[k + 1], p3 = pts[k + 2] || p2;
+    d += ` C${p1[0] + (p2[0] - p0[0]) / 6},${p1[1] + (p2[1] - p0[1]) / 6} ${p2[0] - (p3[0] - p1[0]) / 6},${p2[1] - (p3[1] - p1[1]) / 6} ${p2[0]},${p2[1]}`;
+  }
+  const area = `${d} L${pts.at(-1)[0]},${H - pb} L${pts[0][0]},${H - pb} Z`;
+  return `<svg class="chart bell" viewBox="0 0 ${W} ${H}" style="aspect-ratio:${W}/${H}"><defs><linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--brass2);stop-opacity:.28"/><stop offset="1" style="stop-color:var(--brass2);stop-opacity:0"/></linearGradient></defs>
+    <line x1="${pl}" x2="${W - pr}" y1="${H - pb}" y2="${H - pb}" style="stroke:var(--rule2)"/>
+    ${cnt.map((c, k) => { const h = (H - pt - pb) * c.n / max; return `<rect class="bb" x="${X(k) - bw * .32}" y="${H - pb - h}" width="${bw * .64}" height="${h}" style="fill:${tc(c.t)};animation-delay:${k * 60}ms"><title>${c.t} ${c.n}명</title></rect>
+      <text x="${X(k)}" y="${H - pb - h - 8}" text-anchor="middle" class="bv">${c.n}</text><text x="${X(k)}" y="${H - pb + 18}" text-anchor="middle" class="bt">${c.t}</text>`; }).join("")}
+    <path d="${area}" fill="url(#bg1)"/><path d="${d}" class="bc" style="fill:none;stroke:var(--brass2);stroke-width:2.5;stroke-linecap:round"/></svg>`;
 }
 
 /* ---------- 맞대결 ---------- */
@@ -637,13 +654,13 @@ function viewLadder(k) {
   const L = P.filter(p => p.lad && !p.off).sort((a, b) => (b.lad.rating || 0) - (a.lad.rating || 0));
   const lu = D.meta.sources.find(s => s.name === "ladder");
   app.innerHTML = `<div class="h"><h2><small>cwal.gg 래더 점수 × 클랜 ELO · 계정 ${L.length}개 연결</small><span class="gold">Ladder</span></h2><div class="aside">래더 갱신 ${esc(lu?.updated || "—")}</div></div>
-    <div class="card hl"><h3>래더 아이디 등록<em>순위에 안 보이는 클랜원 · 매일 밤 반영</em></h3>
+    <details class="regbox"><summary><span>순위에 안 보이나요? <b>래더 아이디 등록</b></span><i>+</i></summary>
       <div class="reg"><div class="fld"><label for="r_id">클랜 아이디</label><input id="r_id" placeholder="예: rox" autocomplete="off"></div>
         <div class="fld"><label for="r_toon">래더 계정 이름</label><input id="r_toon" placeholder="예: rox[kS]" autocomplete="off"></div>
         <div class="fld"><label for="r_tier">클랜 티어</label><select id="r_tier"><option value="">선택</option>${T.map(t => `<option>${t}</option>`).join("")}</select></div>
         <button class="btn pri" id="r_go">등록하기</button></div>
-      <p class="msg" id="r_msg" style="margin:10px 0 0">cwal.gg에 있는 계정만 올라갑니다. 잘못 넣은 계정은 운영진이 지울 수 있습니다.</p></div>
-    <div class="panel scroll" style="margin-top:12px"><table class="tbl"><thead><tr><th class="r">#</th><th></th><th>선수</th><th class="r">래더</th><th class="r hide-m">전체순위</th><th class="r hide-m">시즌</th><th class="r">클랜 ELO</th></tr></thead><tbody>
+      <p class="msg" id="r_msg" style="margin:10px 0 0">cwal.gg에 있는 계정만 올라갑니다. 매일 밤 반영 · 잘못 넣은 계정은 운영진이 지울 수 있습니다.</p></details>
+    <div class="panel scroll"><table class="tbl"><thead><tr><th class="r">#</th><th></th><th>선수</th><th class="r">래더</th><th class="r hide-m">전체순위</th><th class="r hide-m">시즌</th><th class="r">클랜 ELO</th></tr></thead><tbody>
     ${L.map((p, n) => `<tr data-k="${esc(p.k)}"><td class="rk r num ${n < 3 ? "t3" : ""}">${n + 1}</td><td class="stripe" style="--tc:${tc(p.tier)}"></td>
       <td class="nm">${esc(p.id)} ${raceB(p.lad.race || p.race)}<span class="sub">${esc(p.lad.toon)}</span></td>
       <td class="r rt num">${p.lad.rating || "—"}</td><td class="r hide-m num" style="font-size:16px">${p.lad.standing ? p.lad.standing.toLocaleString() + "위" : "—"}</td>

@@ -584,3 +584,22 @@ textarea.out{width:100%;min-height:240px;background:var(--field);border:1px soli
 :root[data-ks="light"] .intro .word{color:#1c1317}
 :root[data-ks="light"] .intro .sub{color:#8c7a83}
 :root[data-ks="light"] .intro .bars i:nth-child(3){background:#1c1317;opacity:.85}
+
+/* ───── 5차: 티어 종 그래프 · VS 잘림 · 래더 등록 접기 ───── */
+.bell .bv{font:800 15px var(--disp);fill:var(--ink)}
+.bell .bt{font:800 12px var(--disp);letter-spacing:.06em;fill:var(--ink2);text-transform:uppercase}
+.bell .bb{transform-box:fill-box;transform-origin:bottom;animation:barUp .8s cubic-bezier(.2,.8,.2,1) both}
+.bell .bc{stroke-dasharray:1200;stroke-dashoffset:1200;animation:draw 1.4s ease-out .4s forwards}
+@keyframes barUp{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.bell .bb,.bell .bc{animation:none;stroke-dashoffset:0}}
+.vsbox .x{padding:0 .14em 0 .04em;overflow:visible;line-height:1.1}
+@media(max-width:600px){.vsbox{gap:8px}.vsbox .x{font-size:28px}}
+.regbox{margin-bottom:12px;border:1px solid var(--rule);background:var(--panelB)}
+.regbox summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 14px;cursor:pointer;list-style:none;font-size:12.5px;color:var(--ink2)}
+.regbox summary::-webkit-details-marker{display:none}
+.regbox summary b{color:var(--ink)}
+.regbox summary i{font-style:normal;font:800 18px var(--disp);color:var(--brass2);transition:transform .2s}
+.regbox[open] summary i{transform:rotate(45deg)}
+.regbox .reg,.regbox .msg{padding:0 14px}
+.regbox .msg{padding-bottom:12px}
