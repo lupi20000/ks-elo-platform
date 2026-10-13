@@ -14,3 +14,4 @@ __pycache__/
 *.pem
 *.key
 .dev.vars
+tools/_submits.json

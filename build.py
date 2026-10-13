@@ -169,12 +169,22 @@ def load_admin_sources():
     return [x for x in d if isinstance(x, dict)]
 
 
+def load_repo_sources():
+    """저장소에 적어 둔 출처(data/sources.json) — 카페 리그글에서 찾은 시트 등. 관리자 등록분과 합친다"""
+    path = os.path.join(HERE, "data", "sources.json")
+    try:
+        d = json.load(open(path, encoding="utf-8"))
+        return [x for x in d if isinstance(x, dict)]
+    except Exception:
+        return []
+
+
 def collect_admin_sources(sources, stat):
     """등록된 출처마다 CSV 받기 → 매핑 적용 → 세트 목록. stat[id] 에 결과 기록"""
     out = []
     for src in sources:
         sid = str(src.get("id") or src.get("name") or "").strip()
-        if not sid or not src.get("enabled", True) or not src.get("mapping"):
+        if not sid or not src.get("enabled", True):
             continue
         name = (src.get("name") or sid).strip()
         st = {"ok": False, "rows": 0, "games": 0, "skipped": 0, "msg": "", "at": NOW.strftime("%Y-%m-%d %H:%M")}
@@ -200,8 +210,19 @@ def collect_admin_sources(sources, stat):
         if rows is None:
             SRC_STATUS.append({"name": "src:" + sid, "label": name, "status": st["msg"], "rows": 0})
             continue
+        mp = src.get("mapping")
+        if not mp:                                       # 매핑이 없으면 자동으로 짐작
+            try:
+                mp, _ = sheetsrc.guess_mapping(rows)
+            except Exception:
+                mp = None
+            if not mp or mp.get("cols", {}).get("winner") is None or mp.get("cols", {}).get("loser") is None:
+                st["msg"] = "승자·패자 열을 자동으로 못 찾음 — 운영진 화면에서 열을 지정해 주세요"
+                continue
+        if src.get("defaultDate") and not mp.get("defaultDate"):
+            mp = dict(mp, defaultDate=src["defaultDate"])
         try:
-            sets, nrows, skipped = sheetsrc.apply_mapping(rows, src["mapping"], (src.get("league") or "ELO").strip())
+            sets, nrows, skipped = sheetsrc.apply_mapping(rows, mp, (src.get("league") or "ELO").strip())
         except Exception as e:
             st["msg"] = f"매핑 적용 실패({type(e).__name__}) — 열 번호를 확인해 주세요"
             continue
@@ -222,9 +243,10 @@ def collect_admin_sources(sources, stat):
     return out
 
 
-def load_cafe_games():
-    """tools/cafe.py 가 만든 out/cafe_games.json → 세트 목록"""
-    path = os.path.join(OUT, "cafe_games.json")
+def load_cafe_games(path=None, label="카페 Elo 결과입력란", name="cafe", src_default="카페"):
+    """경기 목록 JSON → 세트 목록. 기본은 tools/cafe.py 가 만든 out/cafe_games.json
+    같은 모양으로: data/elo_backfill.json(카페 과거기록), tools/_submits.json(사이트 입력양식)"""
+    path = path or os.path.join(OUT, "cafe_games.json")
     if not os.path.exists(path):
         return []
     try:
@@ -240,8 +262,8 @@ def load_cafe_games():
                     "w": x["winner"].strip(), "l": x["loser"].strip(),
                     "wr": clean_race(x.get("wrace")), "lr": clean_race(x.get("lrace")),
                     "wt": clean_tier(x.get("wtier")), "lt": clean_tier(x.get("ltier")),
-                    "src": x.get("src") or "카페", "url": x.get("url") or ""})
-    SRC_STATUS.append({"name": "cafe", "label": "카페 Elo 결과입력란", "status": "수집", "rows": len(out)})
+                    "src": x.get("src") or src_default, "url": x.get("url") or ""})
+    SRC_STATUS.append({"name": name, "label": label, "status": "수집", "rows": len(out)})
     return out
 
 
@@ -507,8 +529,14 @@ def main():
     kpl_roster = fetch_tab("kpl_roster")
     kpl_rank = fetch_tab("kpl_ranking")
     srcstat = load_srcstat()                # 카페 수집기가 먼저 써 둔 상태를 이어 씀
-    admin = collect_admin_sources(load_admin_sources(), srcstat)
+    srcs = load_admin_sources()
+    have_ids = {str(x.get("id")) for x in srcs}
+    srcs += [x for x in load_repo_sources() if str(x.get("id")) not in have_ids]
+    admin = collect_admin_sources(srcs, srcstat)
     cafe = load_cafe_games()
+    backfill = load_cafe_games(os.path.join(HERE, "data", "elo_backfill.json"), "카페 과거 ELO 기록", "backfill", "카페(과거)")
+    subs_path = os.environ.get("ELO_SUBMITS_FILE")
+    subs = load_cafe_games(subs_path, "사이트 결과 입력", "submits", "입력양식") if subs_path else []
 
     # 별칭: V5 DB 특이사항의 'A -> B' 표기, 래더 명단의 old 필드
     for x in (v5_db or []):
@@ -540,6 +568,11 @@ def main():
             srcstat["cafe"]["added"] = added
             if added < len(cafe):
                 srcstat["cafe"]["msg"] += f" · 이미 있는 기록과 겹쳐 {len(cafe) - added}세트 제외"
+    for sid, sets in (("backfill", backfill), ("submits", subs)):
+        if sets:
+            added = merge_dedup(games, sets, sid, loose=True)
+            srcstat[sid] = {"ok": True, "games": added, "rows": len(sets), "skipped": len(sets) - added,
+                            "msg": f"{len(sets)}세트 중 {added}세트 반영", "at": NOW.strftime("%Y-%m-%d %H:%M")}
     json.dump(srcstat, open(SRCSTAT_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     games.sort(key=lambda g: g["d"])
 

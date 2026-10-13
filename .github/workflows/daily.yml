@@ -63,6 +63,7 @@ jobs:
           }
           get "elo:sources" tools/_sources.json '[]'
           get "elo:cafe" tools/_cafe.json '{}'
+          get "elo:submits" tools/_submits.json '[]'
 
       - name: 카페 결과입력란 모으기
         if: steps.check.outputs.skip != 'true'
@@ -76,6 +77,7 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         env:
           ELO_SOURCES_FILE: tools/_sources.json
+          ELO_SUBMITS_FILE: tools/_submits.json
           KS_ADMIN_HASH: ${{ secrets.KS_ADMIN_HASH }}
         run: python build.py
 

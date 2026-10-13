@@ -227,6 +227,36 @@ export default {
     }
     if (길 === '/me') return 답({ ok: await 관리자냐(env, req) });
 
+    // ELO 결과 입력 (공개) — 사이트의 입력 양식이 보낸다. 다음 새벽 갱신 때 반영
+    if (길 === '/elo/submit' && req.method === 'POST') {
+      const ip = req.headers.get('cf-connecting-ip') || 'x';
+      const rk = 'elo:rl:' + ip;
+      const cnt = parseInt((await env.KSDATA.get(rk)) || '0', 10);
+      if (cnt >= 40) return 답({ ok: false, msg: '한 시간에 너무 많이 보냈습니다. 잠시 뒤에 다시 해 주세요.' }, 429);
+      const 아이디 = /^[A-Za-z0-9_.\-]{2,30}$/;
+      const g = { date: 짧게(body.date, 10), league: 짧게(body.league, 30), map: 짧게(body.map, 40),
+        winner: 짧게(body.winner, 30), loser: 짧게(body.loser, 30), wrace: 짧게(body.wrace, 1).toUpperCase(), lrace: 짧게(body.lrace, 1).toUpperCase() };
+      const d = new Date(g.date + 'T00:00:00Z'), now = Date.now();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(g.date) || isNaN(d) || d.getTime() > now + 864e5 || d.getTime() < now - 120 * 864e5)
+        return 답({ ok: false, msg: '날짜가 올바르지 않습니다. (최근 120일 안의 날짜만)' }, 400);
+      if (!아이디.test(g.winner) || !아이디.test(g.loser)) return 답({ ok: false, msg: '아이디는 영어·숫자로만 적어 주세요.' }, 400);
+      if (g.winner.toLowerCase() === g.loser.toLowerCase()) return 답({ ok: false, msg: '승자와 패자가 같습니다.' }, 400);
+      if (!g.league) return 답({ ok: false, msg: '리그를 골라 주세요.' }, 400);
+      for (const k of ['wrace', 'lrace']) if (!/^[PTZ]?$/.test(g[k])) g[k] = '';
+      const L = await 읽기(env, 'elo:submits', []);
+      const dup = L.find(x => x.date === g.date && x.winner.toLowerCase() === g.winner.toLowerCase() && x.loser.toLowerCase() === g.loser.toLowerCase() && x.map === g.map && now - x.t < 600000);
+      if (dup) return 답({ ok: false, msg: '방금 같은 결과가 이미 들어왔습니다.' }, 409);
+      L.push({ k: crypto.randomUUID().slice(0, 8), t: now, ...g });
+      while (L.length > 8000) L.shift();
+      await 쓰기(env, 'elo:submits', L);
+      await env.KSDATA.put(rk, String(cnt + 1), { expirationTtl: 3600 });
+      return 답({ ok: true, msg: '접수되었습니다. 내일 새벽 갱신 때 순위에 반영됩니다.' });
+    }
+    if (길 === '/elo/recent' && req.method === 'GET') {
+      const L = await 읽기(env, 'elo:submits', []);
+      return 답({ ok: true, list: L.slice(-15).reverse().map(x => ({ date: x.date, league: x.league, map: x.map, winner: x.winner, loser: x.loser, t: x.t })) });
+    }
+
     // 래더 계정 목록(공개) — ks-replay 와 같은 'ops'
     if (길 === '/ladder/ops' && req.method === 'GET') return 답({ ok: true, ops: await 읽기(env, 'ops', []) });
 
@@ -279,6 +309,13 @@ export default {
       if (JSON.stringify(p).length > 60000) return 답({ ok: false, msg: '저장할 내용이 너무 큽니다.' }, 400);
       await 쓰기(env, 'elo:promo', p);
       return 답({ ok: true, promo: p });
+    }
+
+    if (길 === '/elo/submits' && req.method === 'GET') return 답({ ok: true, list: (await 읽기(env, 'elo:submits', [])).slice(-500).reverse() });
+    if (길 === '/elo/submits/del' && req.method === 'POST') {
+      const L = (await 읽기(env, 'elo:submits', [])).filter(x => x.k !== body.k);
+      await 쓰기(env, 'elo:submits', L);
+      return 답({ ok: true });
     }
 
     if (길 === '/ladder/save' && req.method === 'POST') {

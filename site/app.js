@@ -61,6 +61,7 @@ const delta = p => {
 };
 const dl = v => v == null ? `<span class="dl z">NEW</span>` : Math.abs(v) < 0.5 ? `<span class="dl z">—</span>` :
   `<span class="dl ${v > 0 ? "up" : "dn"}">${v > 0 ? "▲" : "▼"}${Math.abs(r0(v))}</span>`;
+const mapN = g => g[2] >= 0 && D.maps[g[2]] ? D.maps[g[2]] : "확인불가";
 const expect = (a, b) => 1 / (1 + Math.pow(10, (b - a) / 400));
 const tmC = n => teamColor[n] || "var(--brass2)";
 const teamB = n => n ? `<span class="team" style="--tm:${tmC(n)}">${esc(n)}</span>` : "";
@@ -78,7 +79,7 @@ function prep(data) {
   T.forEach(t => ranked.filter(p => p.tier === t).forEach((p, n) => rankTier[p.i] = n + 1));
   if (K) (K.teams || K.standings || []).forEach((t, n) => teamColor[t.name || t.team] = TEAM_COLORS[n % TEAM_COLORS.length]);
   $("#stamp").innerHTML = `마지막 갱신<b>${esc(D.meta.updated)}</b>`;
-  $("#foot").innerHTML = `kS CLAN ELO · 세트 ${G.length.toLocaleString()} · 선수 ${P.filter(p => !p.off).length.toLocaleString()} · 시간감쇠 반감기 ${D.meta.halfLife}일 · <a href="#/about">계산 기준</a> · <a href="#/admin">운영진</a>
+  $("#foot").innerHTML = `kS CLAN ELO · 세트 ${G.length.toLocaleString()} · 선수 ${P.filter(p => !p.off).length.toLocaleString()} · 시간감쇠 반감기 ${D.meta.halfLife}일 · <a href="#/input">결과 입력</a> · <a href="#/about">계산 기준</a> · <a href="#/admin">운영진</a>
     <span class="cr">© kS CLAN. 이 사이트의 디자인·코드·데이터의 무단 복제, AI 학습·재현을 금지합니다.</span>`;
   const tk = G.slice(-28).reverse().map(g => `<span class="it"><span class="when">${fmtD(g[0]).slice(5)}</span><span class="lg">${esc(D.leagues[g[1]].name)}</span><span class="won">${esc(P[g[3]].id)}</span> 승 <span>(vs <b>${esc(P[g[4]].id)}</b>)</span></span>`).join("");
   if (tk) $("#ticker").innerHTML = `<span class="tag">LIVE 결과</span><div class="rail"><div class="run">${tk}${tk}</div></div>`;
@@ -96,7 +97,7 @@ function route() {
   app.onclick = null;
   ({ rank: viewRank, p: () => viewPlayer(decodeURIComponent(rest.join("/"))), kpl: () => viewKPL(rest.map(decodeURIComponent)),
      stats: () => viewStats(rest[0]), vs: () => viewVs(rest.map(decodeURIComponent)), ladder: viewLadder,
-     admin: () => viewAdmin(rest[0]), about: viewAbout }[name] || viewRank)();
+     admin: () => viewAdmin(rest[0]), about: viewAbout, input: viewInput }[name] || viewRank)();
   enter();
 }
 window.addEventListener("hashchange", route);
@@ -118,6 +119,7 @@ function viewRank() {
   app.innerHTML = `${gap}
     <div class="h"><h2><small>현재 클랜원 · 전 리그 통합 · 최근 경기일수록 무겁게</small>Power <span class="gold">Ranking</span></h2>
       <div class="aside"><b class="num gold">${ranked.length}</b>정식 순위 선수</div></div>
+    <a class="cta" href="#/input"><span><b>경기 끝났나요?</b> ELO 결과를 바로 입력하세요 · 다음 날 새벽 순위에 반영</span><i>결과 입력 →</i></a>
     <div class="podium">${pod}</div>
     <div class="bar">
       <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
@@ -279,7 +281,7 @@ function viewPlayer(k) {
       <tr><th></th><th>날짜</th><th>리그</th><th>상대</th><th>맵</th></tr>
       ${recent.map(j => { const g = G[j], win = g[3] === i, o = win ? g[4] : g[3];
         return `<tr class="clk" data-vs="${esc(P[o].k)}"><td><span class="res ${win ? "W" : "L"}">${win ? "W" : "L"}</span></td><td class="num">${fmtD(g[0])}</td>
-        <td>${esc(D.leagues[g[1]].name)}</td><td>${esc(P[o].id)} ${raceB(RN[win ? g[6] : g[5]])}</td><td style="color:var(--ink3)">${esc(D.maps[g[2]] || "")}</td></tr>`; }).join("")}
+        <td>${esc(D.leagues[g[1]].name)}</td><td>${esc(P[o].id)} ${raceB(RN[win ? g[6] : g[5]])}</td><td style="color:var(--ink3)">${esc(mapN(g))}</td></tr>`; }).join("")}
     </table></div></div>
     ${lad ? `<div class="card"><h3>Ladder<em>cwal.gg</em></h3>
       <div class="stats" style="grid-template-columns:1fr 1fr">
@@ -572,7 +574,7 @@ function viewVs([a, b] = []) {
       <div class="card"><h3>맵별</h3><div class="mu">${muRows(maps, k => esc((D.maps[k] || "").slice(0, 7)))}</div></div>
       <div class="card"><h3>전체 기록<em>${js.length}세트</em></h3><div class="scroll"><table class="mini"><tr><th>날짜</th><th>리그</th><th>승자</th><th class="c">종족</th><th>맵</th></tr>
         ${js.slice().reverse().map(j => { const g = G[j], aWin = g[3] === ia; return `<tr><td class="num">${fmtD(g[0])}</td><td>${esc(D.leagues[g[1]].name)}</td>
-          <td><b style="color:${aWin ? "var(--tc)" : "var(--tc2)"}">${esc(P[g[3]].id)}</b></td><td class="c">${raceB(RN[aWin ? g[5] : g[6]])}<span style="color:var(--ink3);margin:0 3px">v</span>${raceB(RN[aWin ? g[6] : g[5]])}</td><td style="color:var(--ink3)">${esc(D.maps[g[2]] || "")}</td></tr>`; }).join("")}
+          <td><b style="color:${aWin ? "var(--tc)" : "var(--tc2)"}">${esc(P[g[3]].id)}</b></td><td class="c">${raceB(RN[aWin ? g[5] : g[6]])}<span style="color:var(--ink3);margin:0 3px">v</span>${raceB(RN[aWin ? g[6] : g[5]])}</td><td style="color:var(--ink3)">${esc(mapN(g))}</td></tr>`; }).join("")}
       </table></div></div></div>` : ""}
     ${common.length ? `<div class="h3">공통 상대<em>둘 다 상대해 본 선수 · ${esc(A.id)} ${pctS(ca[0], ca[1])} vs ${esc(B.id)} ${pctS(cb[0], cb[1])}</em></div>
       <div class="panel scroll"><table class="tbl"><thead><tr><th>상대</th><th class="r">${esc(A.id)}</th><th class="r">승률</th><th class="r">${esc(B.id)}</th><th class="r">승률</th></tr></thead><tbody>
@@ -625,13 +627,13 @@ async function api(path, body) {
 async function viewAdmin(tab) {
   if (!TOK.get() || !(await api("/me")).ok) return adminGate();
   tab = tab || "src";
-  const tabs = { src: "시트 등록", cafe: "카페 수집", promo: "등급조정", lad: "래더 계정", health: "데이터 상태" };
+  const tabs = { src: "시트 등록", subs: "입력된 결과", cafe: "카페 수집", promo: "등급조정", lad: "래더 계정", health: "데이터 상태" };
   app.innerHTML = `<div class="h"><h2><small>운영진 전용 · 이 화면의 내용은 공개 화면에 나오지 않습니다</small><span class="gold">운영진</span> <span class="kr">관리</span></h2>
     <div class="aside"><button class="btn sm" id="logout">로그아웃</button></div></div>
     <div class="seg">${Object.entries(tabs).map(([k, v]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${v}</button>`).join("")}</div><div id="av"></div>`;
   $(".seg").onclick = e => { const t = e.target.dataset.tab; if (t) location.hash = `#/admin/${t}`; };
   $("#logout").onclick = async () => { await api("/logout", {}); TOK.clear(); location.hash = "#/"; };
-  ({ src: adminSources, cafe: adminCafe, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || adminSources)($("#av"));
+  ({ src: adminSources, subs: adminSubs, cafe: adminCafe, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || adminSources)($("#av"));
 }
 function adminGate() {
   app.innerHTML = `<div class="gate"><div class="kicker">ADMIN</div><h2>운영진</h2><p>관리자 아이디와 비밀번호를 넣어 주세요.</p>
@@ -880,6 +882,59 @@ function adminHealth(el) {
     ${D.meta.gaps.length ? `<div class="notice red" style="margin-top:12px"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}`;
 }
 
+/* ---------- 결과 입력 ---------- */
+function viewInput() {
+  const lgs = ["ELO", ...D.leagues.map(l => l.name).filter(n => n !== "ELO" && !/^前/.test(n) && n !== "클랜대항전"), "KTL"].filter((x, i, a) => a.indexOf(x) === i);
+  const mc = new Map(); G.slice(-3000).forEach(g => g[2] >= 0 && mc.set(g[2], (mc.get(g[2]) || 0) + 1));
+  const maps = [...mc.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => D.maps[k]).filter(Boolean);
+  const ids = P.filter(p => !p.off && p.st === "A").map(p => p.id).sort((a, b) => a.localeCompare(b));
+  const today = new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10);
+  app.innerHTML = `<div class="h"><h2><small>세트마다 한 번씩 · 영어 아이디로만 · 다음 날 새벽 자동 반영</small>ELO <span class="gold">결과 입력</span></h2></div>
+    <div class="card hl"><datalist id="ids">${ids.map(i => `<option value="${esc(i)}">`).join("")}</datalist>
+      <div class="form-grid">
+        <div class="fld"><label for="i_date">날짜</label><input id="i_date" type="date" value="${today}" max="${today}"></div>
+        <div class="fld"><label for="i_lg">리그</label><select id="i_lg">${lgs.map(l => `<option>${esc(l)}</option>`).join("")}</select></div>
+        <div class="fld wide" style="grid-column:span 2"><label for="i_map">맵</label><select id="i_map"><option value="">확인불가 / 모름</option>${maps.map(m => `<option>${esc(m)}</option>`).join("")}</select></div>
+        <div class="fld"><label for="i_w">승자 아이디</label><input id="i_w" list="ids" placeholder="영어로" autocomplete="off" autocapitalize="off"></div>
+        <div class="fld"><label for="i_wr">승자 종족</label><select id="i_wr"><option value="">자동</option><option>P</option><option>T</option><option>Z</option></select></div>
+        <div class="fld"><label for="i_l">패자 아이디</label><input id="i_l" list="ids" placeholder="영어로" autocomplete="off" autocapitalize="off"></div>
+        <div class="fld"><label for="i_lr">패자 종족</label><select id="i_lr"><option value="">자동</option><option>P</option><option>T</option><option>Z</option></select></div>
+      </div>
+      <label class="keep" style="display:flex;gap:8px;margin:12px 0 0;font-size:12.5px;color:var(--ink2)"><input type="checkbox" id="i_new"> 명단에 아직 없는 새 클랜원이 있음</label>
+      <div class="btns"><button class="btn pri" id="i_go" style="min-width:160px">결과 보내기</button><span class="msg" id="i_msg">다전제는 세트마다 따로 보내 주세요. 종족을 비워 두면 명단의 주종족으로 채웁니다.</span></div></div>
+    <div class="h3">방금 들어온 결과</div><div class="panel" id="i_recent"><div class="empty"><span class="spin"></span></div></div>`;
+  const say = (t, ok) => { $("#i_msg").className = ok ? "msg ok" : "msg no"; $("#i_msg").textContent = t; };
+  const fix = v => { const p = P.find(x => !x.off && x.id.toLowerCase() === v.toLowerCase()); return p ? p.id : v; };
+  const recent = async () => { const r = await api("/elo/recent");
+    $("#i_recent").innerHTML = r.ok && r.list.length ? `<table class="mini">${r.list.map(x => `<tr><td class="num">${esc(x.date.slice(5).replace("-", "."))}</td><td>${esc(x.league)}</td><td><b style="color:var(--up)">${esc(x.winner)}</b> 승 <span style="color:var(--ink3)">(vs ${esc(x.loser)})</span></td><td style="color:var(--ink3)">${esc(x.map || "확인불가")}</td></tr>`).join("")}</table>`
+      : `<div class="empty">${r.ok ? "아직 입력된 결과가 없습니다" : esc(r.msg)}</div>`; };
+  recent();
+  $("#i_go").onclick = async () => {
+    const w = fix($("#i_w").value.trim()), l = fix($("#i_l").value.trim());
+    if (!/^[A-Za-z0-9_.\-]{2,30}$/.test(w) || !/^[A-Za-z0-9_.\-]{2,30}$/.test(l)) return say("아이디는 영어·숫자로만 적어 주세요.");
+    if (w.toLowerCase() === l.toLowerCase()) return say("승자와 패자가 같습니다.");
+    const known = v => P.some(p => p.id.toLowerCase() === v.toLowerCase());
+    if (!$("#i_new").checked && (!known(w) || !known(l))) return say(`명단에 없는 아이디입니다: ${[w, l].filter(v => !known(v)).join(", ")} — 철자를 확인하거나 '새 클랜원' 칸을 체크해 주세요.`);
+    const race = (v, sel) => sel || (P.find(p => !p.off && p.id.toLowerCase() === v.toLowerCase())?.race || "");
+    $("#i_go").disabled = true;
+    const r = await api("/elo/submit", { date: $("#i_date").value, league: $("#i_lg").value, map: $("#i_map").value, winner: w, loser: l, wrace: race(w, $("#i_wr").value), lrace: race(l, $("#i_lr").value) });
+    $("#i_go").disabled = false;
+    say(r.ok ? `${w} 승 (vs ${l}) — ${r.msg}` : r.msg, r.ok);
+    if (r.ok) { $("#i_w").value = $("#i_l").value = ""; $("#i_wr").value = $("#i_lr").value = ""; recent(); }
+  };
+}
+async function adminSubs(el) {
+  el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
+  const r = await api("/elo/submits");
+  if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
+  el.innerHTML = `<p class="msg">사이트 입력 양식으로 들어온 결과입니다 (최근 500건). 잘못 들어온 것은 지우면 다음 갱신 때 빠집니다.</p>
+    <div class="panel scroll">${r.list.length ? `<table class="mini" id="sl"><tr><th>날짜</th><th>리그</th><th>승자</th><th>패자</th><th>맵</th><th>들어온 때</th><th></th></tr>
+    ${r.list.map(x => `<tr><td class="num">${esc(x.date)}</td><td>${esc(x.league)}</td><td><b>${esc(x.winner)}</b> ${raceB(x.wrace)}</td><td>${esc(x.loser)} ${raceB(x.lrace)}</td><td>${esc(x.map || "확인불가")}</td>
+      <td class="num">${new Date(x.t).toLocaleString("ko-KR")}</td><td><button class="btn sm del" data-k="${esc(x.k)}">지우기</button></td></tr>`).join("")}</table>` : `<div class="empty">아직 없습니다</div>`}</div>`;
+  el.onclick = async e => { const b = e.target.closest("[data-k]"); if (!b) return; if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 지우기"; return; }
+    await api("/elo/submits/del", { k: b.dataset.k }); adminSubs(el); };
+}
+
 /* ---------- 기준 ---------- */
 function viewAbout() {
   const lw = D.leagues.slice().sort((a, b) => b.w - a.w);
@@ -892,7 +947,7 @@ function viewAbout() {
   <p><b>정식 순위</b>: 통산 ${D.meta.rankedMinGames || 5}세트 이상, 최근 경기 기준 유효경기 ${D.meta.rankedMinEff} 이상. 미달이면 '잠정'으로 표시되고 순위 번호가 붙지 않습니다.</p>
   <h3>2. 신원</h3><p>[kS] 표기와 대소문자는 무시합니다. 닉네임 변경은 같은 사람으로 합칩니다. 주종족이 아닌 종족으로 치른 세트는 <b>부종 프로필</b>로 따로 계산합니다. 현재 명단에 있으면 활동, '휴면'이면 휴면, 명단에 없으면 탈퇴·외부로 표시하되 기록은 지우지 않습니다.</p>
   <h3>3. 등급조정</h3><p>승격·강등은 <b>운영진이 결정</b>합니다. 판단에 쓰는 기준선은 공개하지 않습니다. 순위에 맞춰 일부러 경기를 조절하는 일을 막기 위해서입니다.</p>
-  <h3>4. 갱신</h3><p>매일 새벽 자동으로 모든 공식리그 기록과 카페 ELO 결과입력을 모아 다시 계산합니다.</p>
+  <h3>4. 갱신</h3><p>매일 새벽 자동으로 모든 공식리그 시트와 <a href="#/input" style="text-decoration:underline">결과 입력</a>으로 들어온 ELO 경기를 모아 다시 계산합니다. 맵이 기록되지 않은 경기는 '확인불가'로 표시합니다.</p>
   </div>`;
 }
 

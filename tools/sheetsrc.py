@@ -117,6 +117,8 @@ def apply_mapping(rows, mapping, default_league):
         d = parse_date(_cell(row, c["date"]), _cell(row, c["year"]) if c["year"] is not None else None,
                        _cell(row, c["month"]) if c["month"] is not None else None,
                        _cell(row, c["day"]) if c["day"] is not None else None)
+        if d is None and mapping.get("defaultDate"):     # 날짜 칸이 없는 시트 → 리그 기간으로 정한 날짜
+            d = parse_date(mapping["defaultDate"])
         if not w or not l or d is None or w.lower() == l.lower() or "?" in (w + l):
             skipped += 1
             continue
