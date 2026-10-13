@@ -1,0 +1,13 @@
+# kS ELO 관리자 서버 (클라우드플레어 워커)
+# 깃허브 자동실행(deploy.yml)이 CLOUDFLARE_API_TOKEN 으로 올린다.
+name = "ks-elo-api"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+workers_dev = true
+
+# 래더 중계소(ks-replay)와 같은 보관함을 같이 쓴다.
+#  - 'ops'        : 래더 계정 추가/빼기 목록 (래더 갱신기가 매일 밤 읽음 — 형식 그대로 유지)
+#  - 'elo:*'      : ELO 사이트 전용 (시트 목록, 등급조정 설정, 카페 설정, 로그인 출입증)
+[[kv_namespaces]]
+binding = "KSDATA"
+id = "3a51b16271fd4fa68a89b884ac01d0f5"
