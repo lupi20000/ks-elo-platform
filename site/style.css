@@ -603,3 +603,6 @@ textarea.out{width:100%;min-height:240px;background:var(--field);border:1px soli
 .regbox[open] summary i{transform:rotate(45deg)}
 .regbox .reg,.regbox .msg{padding:0 14px}
 .regbox .msg{padding-bottom:12px}
+#pb{text-align:right}
+#pbdd div{flex-direction:row-reverse}
+#pbdd div span[style*="margin-left:auto"]{margin-left:0!important;margin-right:auto}
