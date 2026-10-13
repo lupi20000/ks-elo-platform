@@ -63,5 +63,5 @@ jobs:
       - name: 사이트 올리기
         if: steps.chk.outputs.go == '1'
         run: |
-          npx --yes wrangler@3 pages project create ks-elo --production-branch main >/dev/null 2>&1 || true
-          npx --yes wrangler@3 pages deploy dist --project-name ks-elo --branch main --commit-dirty=true
+          npx --yes wrangler@3 pages project create ks-clan-elo --production-branch main >/dev/null 2>&1 || true
+          npx --yes wrangler@3 pages deploy dist --project-name ks-clan-elo --branch main --commit-dirty=true
