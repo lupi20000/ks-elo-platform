@@ -418,9 +418,14 @@ def build_kpl(sched, results, kroster, kranking, kfor):
             "standings": standings, "teams": team_list, "ranking": ranking, "matches": matches}
 
 
-def merge_dedup(games, new, label):
-    """새 출처 세트를 넣되, 같은 (날짜·리그·맵·승·패) 묶음은 출처 중 많은 쪽만 인정(옮겨 적은 중복 방지)"""
+def merge_dedup(games, new, label, loose=False):
+    """
+    새 출처 세트를 넣되, 같은 (날짜·리그·맵·승·패) 묶음은 출처 중 많은 쪽만 인정(옮겨 적은 중복 방지)
+    loose=True(카페): 맵·리그를 안 적는 경우가 많아 (날짜·승·패)만 같아도 같은 경기로 본다
+    """
     def key(g):
+        if loose:
+            return (g["d"], resolve(g["w"]), resolve(g["l"]))
         return (g["d"], g["lg"], g["map"], resolve(g["w"]), resolve(g["l"]))
     have = Counter(key(g) for g in games)
     newc, added = Counter(), 0
@@ -530,9 +535,11 @@ def main():
             st["msg"] += f" · 이미 있는 기록과 겹쳐 {len(sets) - added}세트 제외"
         st["games"] = added
     if cafe:                                # 카페 결과입력란
-        added = merge_dedup(games, cafe, "카페")
+        added = merge_dedup(games, cafe, "카페", loose=True)
         if "cafe" in srcstat:
             srcstat["cafe"]["added"] = added
+            if added < len(cafe):
+                srcstat["cafe"]["msg"] += f" · 이미 있는 기록과 겹쳐 {len(cafe) - added}세트 제외"
     json.dump(srcstat, open(SRCSTAT_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     games.sort(key=lambda g: g["d"])
 
