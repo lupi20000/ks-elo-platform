@@ -759,7 +759,9 @@ def main():
                 lad[k] = {"toon": row.get("toon"), "rating": row.get("rating") or 0,
                           "standing": row.get("standing"), "race": row.get("cwalRace"),
                           "w": row.get("wins", 0), "l": row.get("losses", 0), "mu": row.get("mu", {}),
-                          "est": bool(row.get("estMmr")), "gw": row.get("gateway")}
+                          "est": bool(row.get("estMmr")), "gw": row.get("gateway"),
+                          "recent": [{"w": x.get("w"), "m": x.get("m"), "o": x.get("o"), "t": x.get("t")}
+                                     for x in (row.get("recent") or [])[:10]]}
 
     # 선수 표
     W = np.bincount(WI, minlength=n); L = np.bincount(LI, minlength=n)

@@ -545,3 +545,36 @@ textarea.out{width:100%;min-height:240px;background:var(--field);border:1px soli
 .mup .pp i{font-style:normal;color:var(--ink3);font-size:14px}
 .mup .pp em{font:900 18px var(--disp);font-style:italic;color:var(--live)}
 .mup .ep{margin-top:8px;font:500 11.5px var(--data);color:var(--ink3)}
+
+/* ───── 4차: KPL 정리 · 맞대결 대각선 ───── */
+.team::before{display:none}
+.team{font-weight:700;font-family:var(--body)}
+.stand td.tm .team{font:700 16px var(--body);letter-spacing:0}
+.stand .rk{color:var(--ink3)!important}
+.stand tr.lead .rk{color:var(--brass2)!important}
+.stand td{color:var(--ink)}
+.stand td.num,.stand td.r{color:var(--ink2)!important}
+.kpl-head{padding:14px 20px 16px;margin-bottom:6px}
+.kpl-head .season{font-size:clamp(30px,4.6vw,52px)}
+.kpl-head .meta{margin-top:6px;font-size:12.5px}
+.kpl-head .wm{font-size:clamp(90px,12vw,150px);bottom:-26px}
+.kpl-head+.h3{margin-top:14px}
+.tcard{border-top:3px solid var(--rule2)}
+.tcard .tlink{display:block}
+.tcard .tn{font:800 22px/1.1 var(--body);letter-spacing:-.01em}
+.tcard .big{-webkit-text-stroke:1.2px var(--rule2)}
+.tcard .lead2{display:flex;gap:14px;margin-top:10px;font-size:12.5px;color:var(--ink3)}
+.tcard .lead2 b{color:var(--ink)}
+.tcard .memb{margin-top:12px}
+.tcard .mems{margin-top:10px;display:grid;gap:6px}
+.tcard .mt2{display:grid;grid-template-columns:76px 1fr;gap:8px;align-items:start;font-size:12.5px;color:var(--ink2);line-height:1.6}
+.tcard .mt2 a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--rule2);text-underline-offset:3px}
+.match .t{font:700 15px var(--body)}
+.kpl-head .season,.tcard .tn{font-family:var(--body)}
+.kpl-head .season{font-weight:800;letter-spacing:-.02em}
+.duel{align-items:stretch;min-height:200px}
+.duel .side{align-self:start;padding-bottom:12px;border-bottom:3px solid var(--tc)}
+.duel .side.r{align-self:end;padding:12px 0 0;border-bottom:0;border-top:3px solid var(--tc2)}
+.duel .score{align-self:center}
+@media(max-width:600px){.duel{min-height:0}.duel .side.r{margin-top:40px}}
+.tcard .mems[hidden],.sets[hidden]{display:none}
