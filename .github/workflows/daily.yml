@@ -65,12 +65,14 @@ jobs:
           get "elo:cafe" tools/_cafe.json '{}'
           get "elo:submits" tools/_submits.json '[]'
           get "elo:fix" tools/_fix.json '[]'
+          get "elo:cafeposts" tools/_cafeposts.json '{}'
 
       - name: 카페 결과입력란 모으기
         if: steps.check.outputs.skip != 'true'
         continue-on-error: true
         env:
           ELO_CAFE_FILE: tools/_cafe.json
+          ELO_CAFEPOSTS_FILE: tools/_cafeposts.json
           NAVER_COOKIE: ${{ secrets.NAVER_COOKIE }}
         run: python tools/cafe.py
 

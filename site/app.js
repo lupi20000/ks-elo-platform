@@ -30,7 +30,7 @@ try { console.log("%ckS CLAN ELO", "font:900 28px sans-serif;color:#e2a24a", "\n
 
 /* ---------- 흰색 / 어두운 화면 ---------- */
 $("#theme").addEventListener("click", () => {
-  const light = document.documentElement.getAttribute("data-ks") !== "light";
+  const light = document.documentElement.getAttribute("data-ks") !== "light";  // 지금 어두우면 → 흰색으로
   if (light) document.documentElement.setAttribute("data-ks", "light"); else document.documentElement.removeAttribute("data-ks");
   try { localStorage.setItem("ksTheme", light ? "light" : "dark"); } catch { }
 });
@@ -90,7 +90,7 @@ function prep(data) {
   T.forEach(t => ranked.filter(p => p.tier === t).forEach((p, n) => rankTier[p.i] = n + 1));
   if (K) (K.teams || K.standings || []).forEach((t, n) => teamColor[t.name || t.team] = TEAM_COLORS[n % TEAM_COLORS.length]);
   $("#stamp").innerHTML = `마지막 갱신<b>${esc(D.meta.updated)}</b>`;
-  $("#foot").innerHTML = `kS CLAN ELO · 세트 ${G.length.toLocaleString()} · 선수 ${P.filter(p => !p.off).length.toLocaleString()} · 시간감쇠 반감기 ${D.meta.halfLife}일 · <a href="#/input">결과 입력</a> · <a href="#/about">계산 기준</a> · <a href="#/admin">운영진</a>
+  $("#foot").innerHTML = `kS CLAN ELO · 세트 ${G.length.toLocaleString()} · 선수 ${P.filter(p => !p.off).length.toLocaleString()} · 시간감쇠 반감기 ${D.meta.halfLife}일 · <a href="#/about">계산 기준</a> · <a href="#/admin">운영진</a>
     <span class="cr">© kS CLAN. 이 사이트의 디자인·코드·데이터의 무단 복제, AI 학습·재현을 금지합니다.</span>`;
   const tk = G.slice(-28).reverse().map(g => `<span class="it"><span class="when">${fmtD(g[0]).slice(5)}</span><span class="lg">${esc(D.leagues[g[1]].name)}</span><span class="won">${esc(P[g[3]].id)}</span> 승 <span>(vs <b>${esc(P[g[4]].id)}</b>)</span></span>`).join("");
   if (tk) $("#ticker").innerHTML = `<span class="tag">LIVE 결과</span><div class="rail"><div class="run">${tk}${tk}</div></div>`;
@@ -108,29 +108,45 @@ function route() {
   app.onclick = null;
   ({ rank: viewRank, p: () => viewPlayer(decodeURIComponent(rest.join("/"))), kpl: () => viewKPL(rest.map(decodeURIComponent)),
      stats: () => viewStats(rest[0]), vs: () => viewVs(rest.map(decodeURIComponent)), ladder: viewLadder,
-     admin: () => viewAdmin(rest[0]), about: viewAbout, input: viewInput }[name] || viewRank)();
+     admin: () => viewAdmin(rest[0]), about: viewAbout }[name] || viewRank)();
   enter();
 }
 window.addEventListener("hashchange", route);
 
 /* ---------- 랭킹 ---------- */
-const RS = { tier: "all", race: "all", st: "A", q: "", sort: "r", dir: -1, limit: 60, prov: false, off: false };
+const RS = { tier: "all", race: "all", st: "A", q: "", sort: "r", dir: -1, limit: 60 };
+const TROPHY = `<svg class="trophy" viewBox="0 0 120 140" aria-hidden="true"><defs>
+  <linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".35" stop-color="#f3c654"/><stop offset=".7" stop-color="#c9871c"/><stop offset="1" stop-color="#8a4d0e"/></linearGradient>
+  <linearGradient id="tg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9a93a"/><stop offset="1" stop-color="#7a3e0c"/></linearGradient>
+  <linearGradient id="ts" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <clipPath id="tc"><path d="M30 10h60v28c0 22-13 38-30 40-17-2-30-18-30-40z"/></clipPath></defs>
+  <path d="M30 18H14c0 20 8 30 22 32M90 18h16c0 20-8 30-22 32" fill="none" stroke="url(#tg2)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M30 10h60v28c0 22-13 38-30 40-17-2-30-18-30-40z" fill="url(#tg)"/>
+  <g clip-path="url(#tc)"><rect class="shine" x="-60" y="0" width="34" height="90" fill="url(#ts)" transform="skewX(-20)"/></g>
+  <path d="M60 22l5 10 11 1.5-8 7.6 2 11-10-5.3-10 5.3 2-11-8-7.6 11-1.5z" fill="#fff8dc" opacity=".9"/>
+  <rect x="53" y="78" width="14" height="18" fill="url(#tg2)"/><path d="M40 96h40l6 14H34z" fill="url(#tg)"/>
+  <rect x="30" y="110" width="60" height="16" rx="2" fill="url(#tg2)"/><rect x="44" y="114" width="32" height="7" rx="1" fill="#fff3c4" opacity=".55"/>
+  <circle class="spark s1" cx="20" cy="70" r="2.2" fill="#fff3c4"/><circle class="spark s2" cx="104" cy="60" r="1.8" fill="#fff3c4"/><circle class="spark s3" cx="96" cy="10" r="2.4" fill="#fff3c4"/></svg>`;
+function countUp(el) {
+  const to = +el.dataset.to, t0 = performance.now(), dur = 1400;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { el.textContent = to; return; }
+  const step = t => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
 function viewRank() {
-  const gap = D.meta.gaps.length ? `<div class="notice"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}<br>→ 이 구간 기록은 아직 순위에 반영되지 않았습니다.</div></div>` : "";
   const top = ranked.slice(0, 3);
   const pod = top.map((p, n) => `
     <a class="pod ${n ? "" : "first"}" style="--tc:${tc(p.tier)}" href="${pLink(p.i)}">
       <div class="pos">${n + 1}</div>
-      ${n ? "" : `<span class="crown">CLAN NO.1</span>`}
+      ${n ? "" : TROPHY}
       <div class="kicker">${n ? `${n + 1}위` : "클랜 1위"} · ${esc(p.tier || "미배정")} #${rankTier[p.i] || "–"}</div>
       <div class="who"><span class="nm">${esc(p.id)}</span> ${raceB(p.race)} ${tierB(p.tier)}</div>
-      <div class="rt num">${r0(p.r)}<small>ELO</small></div>
+      <div class="rt num"><span class="cu" data-to="${r0(p.r)}">${r0(p.r)}</span><small>ELO</small></div>
       <div class="sub"><span>${p.w}승 ${p.l}패</span><span>${pctS(p.w, p.w + p.l)}</span><span>${dl(delta(p))}</span></div>
     </a>`).join("");
-  app.innerHTML = `${gap}
-    <div class="h"><h2><small>현재 클랜원 · 전 리그 통합 · 최근 경기일수록 무겁게</small><span class="gold">ELO</span> Power Ranking</h2>
+  app.innerHTML = `
+    <div class="h ptitle"><h2><small>현재 클랜원 · 전 리그 통합 · 최근 경기일수록 무겁게</small><span class="w1"><span class="gold">ELO</span></span> <span class="w2">Power</span> <span class="w3">Ranking</span></h2>
       <div class="aside"><b class="num gold">${ranked.length}</b>정식 순위 선수</div></div>
-    <a class="cta" href="#/input"><span><b>경기 끝났나요?</b> ELO 결과를 바로 입력하세요 · 다음 날 새벽 순위에 반영</span><i>결과 입력 →</i></a>
     <div class="podium">${pod}</div>
     <div class="bar">
       <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
@@ -140,12 +156,10 @@ function viewRank() {
       </select>
     </div>
     <div class="bar" style="margin-top:0">
-      <div class="chips" id="tchips">${["all", ...T].map(t => `<span class="chip ${RS.tier === t ? "on" : ""}" data-t="${t}" style="--tc:${tc(t)}">${t === "all" ? "전체 티어" : `<i></i>${t}`}</span>`).join("")}</div>
+      <div class="chips wrap" id="tchips">${["all", ...T].map(t => `<span class="chip ${RS.tier === t ? "on" : ""}" data-t="${t}" style="--tc:${tc(t)}">${t === "all" ? "전체 티어" : `<i></i>${t}`}</span>`).join("")}</div>
     </div>
     <div class="bar" style="margin-top:0">
-      <div class="chips" id="rchips">${["all", ...RN].map(r => `<span class="chip ${RS.race === r ? "on" : ""}" data-race="${r}">${r === "all" ? "전 종족" : RACE_KO[r]}</span>`).join("")}
-        <span class="chip ${RS.prov ? "on" : ""}" id="prov">잠정 포함</span>
-        <span class="chip ${RS.off ? "on" : ""}" id="offc">부종 포함</span></div>
+      <div class="chips wrap" id="rchips">${["all", ...RN].map(r => `<span class="chip ${RS.race === r ? "on" : ""}" data-race="${r}">${r === "all" ? "전 종족" : RACE_KO[r]}</span>`).join("")}</div>
     </div>
     <div class="panel scroll"><table class="tbl" id="rt"></table></div>
     <button class="more" id="more">더 보기</button>`;
@@ -155,15 +169,16 @@ function viewRank() {
   $("#tchips").onclick = e => { const c = e.target.closest("[data-t]"); if (!c) return; RS.tier = c.dataset.t; RS.limit = 60; viewRank(); };
   $("#rchips").onclick = e => {
     const c = e.target.closest(".chip"); if (!c) return;
-    if (c.id === "prov") RS.prov = !RS.prov; else if (c.id === "offc") RS.off = !RS.off; else RS.race = c.dataset.race;
+    RS.race = c.dataset.race;
     RS.limit = 60; viewRank();
   };
   $("#more").onclick = () => { RS.limit += 100; drawRank(); };
   drawRank();
+  app.querySelectorAll(".cu").forEach(countUp);
 }
 function drawRank() {
   const q = RS.q.trim().toLowerCase();
-  let L = P.filter(p => (RS.st === "all" || p.st === RS.st) && (RS.off || !p.off) && (RS.prov || isRanked(p))
+  let L = P.filter(p => (RS.st === "all" || p.st === RS.st) && (isRanked(p) || q)
     && (RS.tier === "all" || p.tier === RS.tier) && (RS.race === "all" || p.race === RS.race)
     && (!q || p.id.toLowerCase().includes(q)) && (p.w + p.l > 0 || RS.st === "A"));
   const key = { r: p => p.r, n: p => p.w + p.l, wr: p => pct(p.w, p.w + p.l) || 0, last: p => p.last || "", lad: p => p.lad?.rating || 0, d: p => delta(p) ?? -999 }[RS.sort];
@@ -174,7 +189,7 @@ function drawRank() {
     return `<tr data-k="${esc(p.k)}">
       <td class="rk num ${rk && rk <= 3 ? "t3" : ""}">${rk || "–"}</td>
       <td class="stripe" style="--tc:${tc(p.tier)}"></td>
-      <td class="nm">${esc(p.id)} ${stB(p.st)} ${isRanked(p) ? "" : `<span class="prov">잠정</span>`}
+      <td class="nm">${esc(p.off ? p.id.replace(/\s*\((\w)부종\)$/, "") : p.id)}${p.off ? ` <span class="prov">부종 ${esc(p.race || "")}</span>` : ""} ${stB(p.st)} ${isRanked(p) ? "" : `<span class="prov">기록 부족</span>`}
         <span class="sub">${p.tier ? esc(p.tier) : "미배정"}${rankTier[p.i] ? ` #${rankTier[p.i]}` : ""} · ${RACE_KO[p.race] || "—"}</span></td>
       <td class="r rt num">${r0(p.r)}</td>
       <td class="r">${dl(delta(p))}</td>
@@ -411,12 +426,14 @@ function viewKPLTeam(name) {
       <div class="meta"><span>팀 전적 <b>${s.w ?? 0}승 ${s.l ?? 0}패</b></span><span>세트 <b>${s.setW ?? 0}-${s.setL ?? 0}</b></span><span>득실 <b>${s.diff > 0 ? "+" : ""}${s.diff ?? 0}</b></span>
         <span>팀장 <b>${esc(t.members.find(m => m.role === "팀장")?.id || "—")}</b></span><span>부팀장 <b>${esc(t.members.find(m => m.role === "부팀장")?.id || "—")}</b></span></div>
       <div class="wm">${s.rank || ""}</div></div>
-    <div class="stats">
+    <div class="stats c3">
       <div><b class="num">${elos.length ? r0(elos.reduce((a, b) => a + b, 0) / elos.length) : "—"}</b><span>팀원 평균 ELO</span></div>
-      <div><b class="num" style="font-size:22px">${bestElo ? esc(bestElo.id) + " " + r0(bestElo.elo) : "—"}</b><span>팀 최고 ELO</span></div>
       <div><b class="num" style="font-size:22px">${mvpTop ? esc(mvpTop.id) + " ×" + mvpTop.r.mvp : "—"}</b><span>최다 MVP</span></div>
       <div><b class="num" style="font-size:22px">${ace ? esc(ace.id) + " " + ace.r.aceW + "-" + ace.r.aceL : "—"}</b><span>에결 해결사</span></div>
     </div>
+    <div class="h3">티어별 최고 ELO<em>티어마다 팀 안에서 ELO가 가장 높은 선수</em></div>
+    <div class="aces">${T.map(tt => { const top = mem.filter(m => m.tier === tt && m.elo).sort((a, b) => b.elo - a.elo)[0];
+      return top ? `<a class="ace" style="--tc:${tc(tt)}" href="${pLink(top.pi)}"><span class="tier ${tt}" style="--tc:${tc(tt)}">${tt}</span><b>${esc(top.id)}</b> ${raceB(top.race)}<i class="num">${r0(top.elo)}</i></a>` : ""; }).join("")}</div>
     <div class="h3">팀원 분석<em>${mem.length}명 · KPL 출전 순</em></div>
     <div class="panel scroll"><table class="tbl" id="tm"><thead><tr><th></th><th>선수</th><th class="r">KPL 전적</th><th class="r">승률</th><th class="r hide-m">개인</th><th class="r hide-m">에결</th><th class="r hide-m">MVP</th><th class="r">ELO</th><th class="r hide-m">ELO 통산</th></tr></thead><tbody>
       ${mem.map(m => { const p = m.pi != null ? P[m.pi] : null;
@@ -442,7 +459,7 @@ function viewKPLTeam(name) {
 
 /* ---------- 분석 ---------- */
 function viewStats(tab = "league") {
-  const tabs = { league: "리그", tier: "티어", race: "종족", map: "맵", activity: "활동" };
+  const tabs = { league: "리그", tier: "티어", race: "종족", map: "맵" };
   app.innerHTML = `<div class="h"><h2><small>${G.length.toLocaleString()}세트 · ${fmtD(G[0][0])} ~ ${fmtD(G[G.length - 1][0])}</small><span class="gold">Analytics</span></h2></div>
     <div class="seg">${Object.entries(tabs).map(([k, v]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${v}</button>`).join("")}</div><div id="sv"></div>`;
   $(".seg").onclick = e => { const t = e.target.dataset.tab; if (t) location.hash = `#/stats/${t}`; };
@@ -466,10 +483,10 @@ function viewStats(tab = "league") {
       const v = o.w / o.n, c = v >= .5 ? `rgba(94,220,154,${(v - .5) * 1.5})` : `rgba(255,99,120,${(.5 - v) * 1.5})`;
       return `<td style="background:${c}" title="${o.w}승 ${o.n - o.w}패">${(v * 100).toFixed(0)}<small>${o.n}</small></td>`; };
     const cnt = T.map(t => ({ t, n: ranked.filter(p => p.tier === t).length }));
-    sv.innerHTML = `<div class="grid c21" style="margin-top:0">
-      <div class="card"><h3>티어 상성<em>행 티어의 승률 % · 작은 숫자 = 세트 수</em></h3><div class="scroll"><table class="heat">
+    sv.innerHTML = `<div class="grid" style="margin-top:0">
+      <div class="card"><h3>티어 상성<em>행 티어의 승률 % · 작은 숫자 = 세트 수</em></h3><div><table class="heat">
         <tr><th></th>${T.map(t => `<th style="color:${tc(t)}">${t.slice(0, 3)}</th>`).join("")}</tr>
-        ${T.map((t, a) => `<tr><th style="color:${tc(t)};text-align:right">${t}</th>${T.map((_, b) => a === b ? `<td style="background:rgba(0,0,0,.25)"></td>` : cell(M[a][b])).join("")}</tr>`).join("")}
+        ${T.map((t, a) => `<tr><th style="color:${tc(t)};text-align:right">${t.slice(0, 3)}</th>${T.map((_, b) => a === b ? `<td style="background:rgba(0,0,0,.25)"></td>` : cell(M[a][b])).join("")}</tr>`).join("")}
       </table></div><p class="legend">시트에 기록된 '경기 당시' 티어 기준. 5세트 미만 칸은 생략.</p></div>
       <div class="card"><h3>티어별 인원<em>정식 순위 선수</em></h3><div class="mu">${cnt.map(x => `<div class="row"><span class="lbl" style="color:${tc(x.t)}">${x.t}</span><div class="track" style="--c:${tc(x.t)}"><i style="width:${100 * x.n / Math.max(1, ...cnt.map(c => c.n))}%"></i></div><span class="v"><b>${x.n}</b>명</span></div>`).join("")}</div></div></div>`;
   }
@@ -500,19 +517,6 @@ function viewStats(tab = "league") {
         </tbody></table></div><p class="legend">20세트 이상 맵 · 수치는 앞 종족 승률 · 55% 이상/45% 이하는 유리 종족 색</p>`;
     }
   }
-  if (tab === "activity") {
-    const nM = D.months.length, gm = new Array(nM).fill(0), pm = D.months.map(() => new Set());
-    const m0y = +D.months[0].slice(0, 4), m0m = +D.months[0].slice(5);
-    G.forEach(g => { const d = day2date(g[0]), k = (d.getFullYear() - m0y) * 12 + d.getMonth() + 1 - m0m; if (k >= 0 && k < nM) { gm[k]++; pm[k].add(g[3]); pm[k].add(g[4]); } });
-    const max = Math.max(...gm), W = 720, H = 200, bw = (W - 40) / nM;
-    const bars = gm.map((v, k) => `<rect x="${30 + k * bw}" y="${H - 20 - (H - 40) * v / max}" width="${Math.max(1, bw - 2)}" height="${(H - 40) * v / max}" class="bar ${v ? "" : "z"}"><title>${D.months[k]} · ${v}세트 · ${pm[k].size}명</title></rect>`).join("");
-    const yl = D.months.map((m, k) => m.endsWith("-01") ? `<text x="${30 + k * bw}" y="${H - 4}">${m.slice(0, 4)}</text>` : "").join("");
-    sv.innerHTML = `<div class="card"><h3>월별 세트 수<em>막대에 손을 올리면 상세</em></h3><svg class="chart" viewBox="0 0 ${W} ${H}" style="aspect-ratio:${W}/${H}">${bars}${yl}</svg>
-      ${D.meta.gaps.length ? `<div class="notice red" style="margin-top:12px">${D.meta.gaps.map(esc).join("<br>")}</div>` : ""}</div>
-      <div class="grid c3">${["A", "D", "X"].map(s => { const L = P.filter(p => p.st === s && !p.off);
-        return `<div class="card"><h3>${ST_KO[s]}<em>${L.length}명</em></h3><div class="stats" style="grid-template-columns:1fr 1fr">
-        <div><b class="num">${L.filter(p => p.w + p.l > 0).length}</b><span>기록 보유</span></div><div><b class="num">${L.reduce((a, p) => a + p.w + p.l, 0).toLocaleString()}</b><span>참여 세트</span></div></div></div>`; }).join("")}</div>`;
-  }
 }
 
 /* ---------- 맞대결 ---------- */
@@ -539,9 +543,18 @@ function viewVs([a, b] = []) {
   bindPick("pb", k => location.hash = `#/vs/${encodeURIComponent(a || "")}/${encodeURIComponent(k)}`);
   const ia = keyIdx[a], ib = keyIdx[b];
   if (ia == null || ib == null) {
-    const sug = ranked.slice(0, 8);
-    $("#vr").innerHTML = `<div class="empty">두 선수를 고르세요</div>${sug.length > 1 ? `<div class="h3">추천 매치업<em>상위 랭커끼리</em></div><div class="panel">${sug.slice(0, 4).map((p, n) => { const q = sug[n + 4] || sug[n + 1];
-      return `<a class="match" href="#/vs/${encodeURIComponent(p.k)}/${encodeURIComponent(q.k)}"><div class="t h win">${esc(p.id)}</div><div class="sc" style="font-size:16px;color:var(--ink3)">vs</div><div class="t win">${esc(q.id)}</div></a>`; }).join("")}</div>` : ""}`;
+    const pool = ranked.filter(p => p.w + p.l >= 10);
+    const rnd = L => L[Math.floor(Math.random() * L.length)];
+    const picks = [], used = new Set();
+    const add = (x, y, why) => { if (!x || !y || x === y || used.has(x.i) || used.has(y.i)) return; used.add(x.i); used.add(y.i); picks.push({ x, y, why }); };
+    for (let n = 0; n < 40 && picks.length < 2; n++) { const t = rnd(T), L = pool.filter(p => p.tier === t); if (L.length > 1) { const x = rnd(L), y = rnd(L.filter(q => q !== x)); add(x, y, `같은 ${t} 티어`); } }
+    for (let n = 0; n < 40 && picks.length < 4; n++) { const x = rnd(pool), L = pool.filter(q => q !== x && Math.abs(q.r - x.r) < 25); if (L.length) { const y = rnd(L); add(x, y, `점수차 ${Math.abs(r0(x.r - y.r))}점`); } }
+    for (let n = 0; n < 60 && picks.length < 6; n++) { const x = rnd(pool); const opp = agg(byP[x.i], x.i, (g, win) => win ? g[4] : g[3]).filter(o => o.n >= 3 && Math.abs(o.w - o.l) <= 1 && P[o.k].st === "A");
+      if (opp.length) { const o = rnd(opp); add(x, P[o.k], `상대전적 ${o.w}:${o.l} 팽팽`); } }
+    $("#vr").innerHTML = `<div class="empty" style="padding:22px">두 선수를 고르거나, 아래 추천 매치업을 눌러 보세요</div>
+      <div class="h3">추천 매치업<em>들어올 때마다 바뀝니다</em></div><div class="mups">${picks.map(m => `<a class="mup" href="#/vs/${encodeURIComponent(m.x.k)}/${encodeURIComponent(m.y.k)}">
+        <span class="why">${esc(m.why)}</span><div class="pp"><span style="--tc:${tc(m.x.tier)}"><b>${esc(m.x.id)}</b> ${raceB(m.x.race)}<i class="num">${r0(m.x.r)}</i></span><em>VS</em><span style="--tc:${tc(m.y.tier)}"><b>${esc(m.y.id)}</b> ${raceB(m.y.race)}<i class="num">${r0(m.y.r)}</i></span></div>
+        <div class="ep">예상 승률 ${(expect(m.x.r, m.y.r) * 100).toFixed(0)} : ${(100 - expect(m.x.r, m.y.r) * 100).toFixed(0)}</div></a>`).join("")}</div>`;
     return;
   }
   const A = P[ia], B = P[ib];
@@ -638,13 +651,14 @@ async function api(path, body) {
 async function viewAdmin(tab) {
   if (!TOK.get() || !(await api("/me")).ok) return adminGate();
   tab = tab || "src";
-  const tabs = { src: "시트 등록", fix: "경기 수정", subs: "입력된 결과", cafe: "카페 수집", promo: "등급조정", lad: "래더 계정", health: "데이터 상태" };
+  const tabs = { src: "시트 등록", fix: "경기 수정", cafe: "카페 수집", promo: "등급조정", lad: "래더 계정", health: "데이터 상태" };
   app.innerHTML = `<div class="h"><h2><small>운영진 전용 · 이 화면의 내용은 공개 화면에 나오지 않습니다</small><span class="gold">운영진</span> <span class="kr">관리</span></h2>
     <div class="aside"><button class="btn sm" id="logout">로그아웃</button></div></div>
+    ${D.meta.gaps.length ? `<div class="notice red"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}
     <div class="seg">${Object.entries(tabs).map(([k, v]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${v}</button>`).join("")}</div><div id="av"></div>`;
   $(".seg").onclick = e => { const t = e.target.dataset.tab; if (t) location.hash = `#/admin/${t}`; };
   $("#logout").onclick = async () => { await api("/logout", {}); TOK.clear(); location.hash = "#/"; };
-  ({ src: adminSources, fix: adminFix, subs: adminSubs, cafe: adminCafe, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || adminSources)($("#av"));
+  ({ src: adminSources, fix: adminFix, cafe: adminCafe, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || adminSources)($("#av"));
 }
 function adminGate() {
   app.innerHTML = `<div class="gate"><div class="kicker">ADMIN</div><h2>운영진</h2><p>관리자 아이디와 비밀번호를 넣어 주세요.</p>
@@ -913,47 +927,6 @@ function adminHealth(el) {
     ${D.meta.gaps.length ? `<div class="notice red" style="margin-top:12px"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}`;
 }
 
-/* ---------- 결과 입력 ---------- */
-function viewInput() {
-  const lgs = ["ELO", ...D.leagues.map(l => l.name).filter(n => n !== "ELO" && !/^前/.test(n) && n !== "클랜대항전"), "KTL"].filter((x, i, a) => a.indexOf(x) === i);
-  const mc = new Map(); G.slice(-3000).forEach(g => g[2] >= 0 && mc.set(g[2], (mc.get(g[2]) || 0) + 1));
-  const maps = [...mc.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => D.maps[k]).filter(Boolean);
-  const ids = P.filter(p => !p.off && p.st === "A").map(p => p.id).sort((a, b) => a.localeCompare(b));
-  const today = new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10);
-  app.innerHTML = `<div class="h"><h2><small>세트마다 한 번씩 · 영어 아이디로만 · 다음 날 새벽 자동 반영</small>ELO <span class="gold">결과 입력</span></h2></div>
-    <div class="card hl"><datalist id="ids">${ids.map(i => `<option value="${esc(i)}">`).join("")}</datalist>
-      <div class="form-grid">
-        <div class="fld"><label for="i_date">날짜</label><input id="i_date" type="date" value="${today}" max="${today}"></div>
-        <div class="fld"><label for="i_lg">리그</label><select id="i_lg">${lgs.map(l => `<option>${esc(l)}</option>`).join("")}</select></div>
-        <div class="fld wide" style="grid-column:span 2"><label for="i_map">맵</label><select id="i_map"><option value="">확인불가 / 모름</option>${maps.map(m => `<option>${esc(m)}</option>`).join("")}</select></div>
-        <div class="fld"><label for="i_w">승자 아이디</label><input id="i_w" list="ids" placeholder="영어로" autocomplete="off" autocapitalize="off"></div>
-        <div class="fld"><label for="i_wr">승자 종족</label><select id="i_wr"><option value="">자동</option><option>P</option><option>T</option><option>Z</option></select></div>
-        <div class="fld"><label for="i_l">패자 아이디</label><input id="i_l" list="ids" placeholder="영어로" autocomplete="off" autocapitalize="off"></div>
-        <div class="fld"><label for="i_lr">패자 종족</label><select id="i_lr"><option value="">자동</option><option>P</option><option>T</option><option>Z</option></select></div>
-      </div>
-      <label class="keep" style="display:flex;gap:8px;margin:12px 0 0;font-size:12.5px;color:var(--ink2)"><input type="checkbox" id="i_new"> 명단에 아직 없는 새 클랜원이 있음</label>
-      <div class="btns"><button class="btn pri" id="i_go" style="min-width:160px">결과 보내기</button><span class="msg" id="i_msg">다전제는 세트마다 따로 보내 주세요. 종족을 비워 두면 명단의 주종족으로 채웁니다.</span></div></div>
-    <div class="h3">방금 들어온 결과</div><div class="panel" id="i_recent"><div class="empty"><span class="spin"></span></div></div>`;
-  const say = (t, ok) => { $("#i_msg").className = ok ? "msg ok" : "msg no"; $("#i_msg").textContent = t; };
-  const fix = v => { const p = P.find(x => !x.off && x.id.toLowerCase() === v.toLowerCase()); return p ? p.id : v; };
-  const recent = async () => { const r = await api("/elo/recent");
-    $("#i_recent").innerHTML = r.ok && r.list.length ? `<table class="mini">${r.list.map(x => `<tr><td class="num">${esc(x.date.slice(5).replace("-", "."))}</td><td>${esc(x.league)}</td><td><b style="color:var(--up)">${esc(x.winner)}</b> 승 <span style="color:var(--ink3)">(vs ${esc(x.loser)})</span></td><td style="color:var(--ink3)">${esc(x.map || "확인불가")}</td></tr>`).join("")}</table>`
-      : `<div class="empty">${r.ok ? "아직 입력된 결과가 없습니다" : esc(r.msg)}</div>`; };
-  recent();
-  $("#i_go").onclick = async () => {
-    const w = fix($("#i_w").value.trim()), l = fix($("#i_l").value.trim());
-    if (!/^[A-Za-z0-9_.\-]{2,30}$/.test(w) || !/^[A-Za-z0-9_.\-]{2,30}$/.test(l)) return say("아이디는 영어·숫자로만 적어 주세요.");
-    if (w.toLowerCase() === l.toLowerCase()) return say("승자와 패자가 같습니다.");
-    const known = v => P.some(p => p.id.toLowerCase() === v.toLowerCase());
-    if (!$("#i_new").checked && (!known(w) || !known(l))) return say(`명단에 없는 아이디입니다: ${[w, l].filter(v => !known(v)).join(", ")} — 철자를 확인하거나 '새 클랜원' 칸을 체크해 주세요.`);
-    const race = (v, sel) => sel || (P.find(p => !p.off && p.id.toLowerCase() === v.toLowerCase())?.race || "");
-    $("#i_go").disabled = true;
-    const r = await api("/elo/submit", { date: $("#i_date").value, league: $("#i_lg").value, map: $("#i_map").value, winner: w, loser: l, wrace: race(w, $("#i_wr").value), lrace: race(l, $("#i_lr").value) });
-    $("#i_go").disabled = false;
-    say(r.ok ? `${w} 승 (vs ${l}) — ${r.msg}` : r.msg, r.ok);
-    if (r.ok) { $("#i_w").value = $("#i_l").value = ""; $("#i_wr").value = $("#i_lr").value = ""; recent(); }
-  };
-}
 const LEAGUES = () => ["ELO", ...D.leagues.map(l => l.name).filter(n => n !== "ELO"), "KTL"].filter((x, i, a) => a.indexOf(x) === i);
 function gameForm(v) {
   const races = sel => `<option value="">-</option>${RN.map(r => `<option ${sel === r ? "selected" : ""}>${r}</option>`).join("")}`;
@@ -969,25 +942,6 @@ function gameForm(v) {
 }
 const readForm = el => { const o = {}; el.querySelectorAll("[data-f]").forEach(x => o[x.dataset.f] = x.value.trim()); return o; };
 const validGame = o => !/^[A-Za-z0-9_.\-]{2,30}$/.test(o.winner) || !/^[A-Za-z0-9_.\-]{2,30}$/.test(o.loser) ? "아이디는 영어·숫자로만" : o.winner.toLowerCase() === o.loser.toLowerCase() ? "승자와 패자가 같습니다" : !o.date ? "날짜를 넣어 주세요" : "";
-async function adminSubs(el) {
-  el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
-  const r = await api("/elo/submits");
-  if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
-  el.innerHTML = `<p class="msg">사이트 입력 양식으로 들어온 결과입니다 (최근 500건). 고치거나 지우면 다음 새벽 갱신 때 순위에 반영됩니다.</p>
-    <div class="panel scroll">${r.list.length ? `<table class="mini" id="sl"><tr><th>날짜</th><th>리그</th><th>승자</th><th>패자</th><th>맵</th><th>들어온 때</th><th></th></tr>
-    ${r.list.map(x => `<tr data-k="${esc(x.k)}"><td class="num">${esc(x.date)}</td><td>${esc(x.league)}</td><td><b>${esc(x.winner)}</b> ${raceB(x.wrace)}</td><td>${esc(x.loser)} ${raceB(x.lrace)}</td><td>${esc(x.map || "확인불가")}</td>
-      <td class="num">${new Date(x.t).toLocaleString("ko-KR")}${x.edited ? ` <span class="pill">수정됨</span>` : ""}</td><td style="white-space:nowrap"><button class="btn sm" data-edit="1">수정</button> <button class="btn sm del" data-del="1">지우기</button></td></tr>
-      <tr class="ed" hidden><td colspan="7"></td></tr>`).join("")}</table>` : `<div class="empty">아직 없습니다</div>`}</div>`;
-  el.onclick = async e => {
-    const row = e.target.closest("tr[data-k]") || e.target.closest("tr.ed")?.previousElementSibling; if (!row) return;
-    const k = row.dataset.k, x = r.list.find(v => v.k === k), ed = row.nextElementSibling;
-    if (e.target.closest("[data-del]")) { const b = e.target.closest("[data-del]"); if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 지우기"; return; } await api("/elo/submits/del", { k }); return adminSubs(el); }
-    if (e.target.closest("[data-edit]")) { ed.hidden = false; ed.firstElementChild.innerHTML = gameForm(x); return; }
-    if (e.target.closest("[data-cancel]")) { ed.hidden = true; return; }
-    if (e.target.closest("[data-save]")) { const o = readForm(ed), bad = validGame(o); if (bad) { ed.querySelector(".gm").className = "msg no gm"; ed.querySelector(".gm").textContent = bad; return; }
-      const s2 = await api("/elo/submits/edit", { k, ...o }); if (s2.ok) adminSubs(el); else ed.querySelector(".gm").textContent = s2.msg; }
-  };
-}
 async function adminFix(el) {
   el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
   const r = await api("/fix");
@@ -1041,7 +995,7 @@ function viewAbout() {
   <p><b>정식 순위</b>: 통산 ${D.meta.rankedMinGames || 5}세트 이상, 최근 경기 기준 유효경기 ${D.meta.rankedMinEff} 이상. 미달이면 '잠정'으로 표시되고 순위 번호가 붙지 않습니다.</p>
   <h3>2. 신원</h3><p>[kS] 표기와 대소문자는 무시합니다. 닉네임 변경은 같은 사람으로 합칩니다. 주종족이 아닌 종족으로 치른 세트는 <b>부종 프로필</b>로 따로 계산합니다. 현재 명단에 있으면 활동, '휴면'이면 휴면, 명단에 없으면 탈퇴·외부로 표시하되 기록은 지우지 않습니다.</p>
   <h3>3. 등급조정</h3><p>승격·강등은 <b>운영진이 결정</b>합니다. 판단에 쓰는 기준선은 공개하지 않습니다. 순위에 맞춰 일부러 경기를 조절하는 일을 막기 위해서입니다.</p>
-  <h3>4. 갱신</h3><p>매일 새벽 자동으로 모든 공식리그 시트와 <a href="#/input" style="text-decoration:underline">결과 입력</a>으로 들어온 ELO 경기를 모아 다시 계산합니다. 맵이 기록되지 않은 경기는 '확인불가'로 표시합니다.</p>
+  <h3>4. 갱신</h3><p>매일 새벽 자동으로 모든 공식리그 시트와 네이버 카페 'ELO 결과입력' 게시판의 ELO 경기를 모아 다시 계산합니다. 맵이 기록되지 않은 경기는 '확인불가'로 표시합니다.</p>
   </div>`;
 }
 

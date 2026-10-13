@@ -11,6 +11,8 @@
 
 // 비밀번호는 원문 대신 '소금 친 해시'만 둔다 (PBKDF2-SHA256, 10만 번)
 const 소금 = 'cf595fbf26afa545feac6ef46e9a494d';
+// 카페 글 보내기용 열쇠(오라클 서버 .env 에만 원문이 있음)의 SHA-256
+const 수집열쇠 = '38b5c6cb25af3bbe8f017f0840e22115272d2cf39e8f373174cfb7a84f92fac0';
 const 정답 = '25999dda87e97b5b771f0965bf3a21d8e24604238973363e111e9815aef662f8';
 
 const 머리 = {
@@ -226,6 +228,25 @@ export default {
       return 답({ ok: true, token: t });
     }
     if (길 === '/me') return 답({ ok: await 관리자냐(env, req) });
+
+    // 카페 'ELO 결과입력' 게시판 글 받기 — 오라클 서버의 카페 봇(로그인된 계정)이 매일 보낸다
+    if (길 === '/cafe/ingest' && req.method === 'POST') {
+      const k = req.headers.get('x-ingest-key') || '';
+      const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(k)))].map(b => b.toString(16).padStart(2, '0')).join('');
+      if (!같나(h, 수집열쇠)) return 답({ ok: false, msg: '열쇠가 맞지 않습니다.' }, 401);
+      const M = await 읽기(env, 'elo:cafeposts', {});
+      let n = 0;
+      for (const x of (body.posts || []).slice(0, 300)) {
+        const id = String(x.articleId || '').replace(/\D/g, '');
+        if (!id) continue;
+        M[id] = { t: 짧게(x.title, 120), d: 짧게(x.date, 10), w: 짧게(x.writer, 30), b: String(x.body || '').slice(0, 2500) };
+        n++;
+      }
+      const keys = Object.keys(M).sort((a, b) => +a - +b);
+      while (keys.length > 6000) delete M[keys.shift()];
+      await 쓰기(env, 'elo:cafeposts', M);
+      return 답({ ok: true, stored: n, total: Object.keys(M).length });
+    }
 
     // ELO 결과 입력 (공개) — 사이트의 입력 양식이 보낸다. 다음 새벽 갱신 때 반영
     if (길 === '/elo/submit' && req.method === 'POST') {

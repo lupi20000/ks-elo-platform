@@ -182,6 +182,9 @@ def main():
         json.dump(stat, open(stat_path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         print("카페:", st["msg"])
 
+    if not cfg:                                   # 설정이 아직 없으면 기본: 'Elo 결과입력란'(71번) 켜짐
+        cfg = {"enabled": True, "clubid": "30800617", "menuid": "71"}
+        menuid = "71"
     if not cfg.get("enabled"):
         st["msg"] = "꺼져 있음(관리 화면에서 켜면 모음)"
         if os.path.exists(games_path):
@@ -192,6 +195,13 @@ def main():
         return finish()
 
     cookie = os.environ.get("NAVER_COOKIE") or None
+    posts = {}                                    # 오라클 서버 카페 봇이 보내 둔 본문 {글번호: {b: 본문}}
+    pp = os.environ.get("ELO_CAFEPOSTS_FILE")
+    if pp and os.path.exists(pp):
+        try:
+            posts = json.load(open(pp, encoding="utf-8")) or {}
+        except Exception:
+            posts = {}
     arts = []
     try:
         for page in range(1, MAX_PAGES + 1):
@@ -217,6 +227,9 @@ def main():
         if re.fullmatch(r"[\s\-=ㅡ_~*.]+.*[\-=ㅡ_~*.]+\s*", title) and not re.search(r"\bvs\b", title, re.I):
             continue                                   # '------ elo 마감 ------' 같은 구분선 글
         found = [(title, x) for x in parse_text(title, writer)]
+        if not found and str(aid) in posts:
+            for line in str(posts[str(aid)].get("b") or "").splitlines():
+                found += [(line, x) for x in parse_text(line, writer)]
         if not found and cookie:
             try:
                 for line in body_text(clubid, aid, cookie).splitlines():
