@@ -24,7 +24,7 @@ const ob = JavaScriptObfuscator.obfuscate(js, {
   renameGlobals: false, selfDefending: false, deadCodeInjection: false, unicodeEscapeSequence: false,
 });
 fs.writeFileSync(path.join(OUT, 'app.js'), ob.getObfuscatedCode());
-fs.writeFileSync(path.join(OUT, 'style.css'), minify(fs.readFileSync(path.join(SRC, 'style.css'), 'utf8')).css);
+fs.writeFileSync(path.join(OUT, 'style.css'), minify(fs.readFileSync(path.join(SRC, 'style.css'), 'utf8'), { restructure: false }).css);  // 규칙 순서를 바꾸면 글자 그라데이션이 색 덩어리로 깨진다
 
 let html = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
 html = html.replace(/\n\s+/g, '\n');

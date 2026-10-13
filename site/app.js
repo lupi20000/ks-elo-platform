@@ -46,7 +46,7 @@ $("#theme").addEventListener("click", () => {
   document.body.appendChild(el);
   const done = () => el.remove();
   el.addEventListener("click", done);
-  setTimeout(done, 4900);
+  setTimeout(done, 4000);
 })();
 
 /* ---------- 공통 ---------- */
@@ -548,17 +548,13 @@ function viewVs([a, b] = []) {
   bindPick("pb", k => location.hash = `#/vs/${encodeURIComponent(a || "")}/${encodeURIComponent(k)}`);
   const ia = keyIdx[a], ib = keyIdx[b];
   if (ia == null || ib == null) {
-    const pool = ranked.filter(p => p.w + p.l >= 10);
-    const rnd = L => L[Math.floor(Math.random() * L.length)];
-    const picks = [], used = new Set();
-    const add = (x, y, why) => { if (!x || !y || x === y || used.has(x.i) || used.has(y.i)) return; used.add(x.i); used.add(y.i); picks.push({ x, y, why }); };
-    for (let n = 0; n < 40 && picks.length < 2; n++) { const t = rnd(T), L = pool.filter(p => p.tier === t); if (L.length > 1) { const x = rnd(L), y = rnd(L.filter(q => q !== x)); add(x, y, `같은 ${t} 티어`); } }
-    for (let n = 0; n < 40 && picks.length < 4; n++) { const x = rnd(pool), L = pool.filter(q => q !== x && Math.abs(q.r - x.r) < 25); if (L.length) { const y = rnd(L); add(x, y, `점수차 ${Math.abs(r0(x.r - y.r))}점`); } }
-    for (let n = 0; n < 60 && picks.length < 6; n++) { const x = rnd(pool); const opp = agg(byP[x.i], x.i, (g, win) => win ? g[4] : g[3]).filter(o => o.n >= 3 && Math.abs(o.w - o.l) <= 1 && P[o.k].st === "A");
-      if (opp.length) { const o = rnd(opp); add(x, P[o.k], `상대전적 ${o.w}:${o.l} 팽팽`); } }
+    const pool = ranked.filter(p => p.w + p.l >= 10).slice();
+    for (let n = pool.length - 1; n > 0; n--) { const j = Math.floor(Math.random() * (n + 1)); [pool[n], pool[j]] = [pool[j], pool[n]]; }
+    const picks = [];
+    for (let n = 0; n + 1 < pool.length && picks.length < 6; n += 2) picks.push({ x: pool[n], y: pool[n + 1] });
     $("#vr").innerHTML = `<div class="empty" style="padding:22px">두 선수를 고르거나, 아래 추천 매치업을 눌러 보세요</div>
-      <div class="h3">추천 매치업<em>들어올 때마다 바뀝니다</em></div><div class="mups">${picks.map(m => `<a class="mup" href="#/vs/${encodeURIComponent(m.x.k)}/${encodeURIComponent(m.y.k)}">
-        <span class="why">${esc(m.why)}</span><div class="pp"><span style="--tc:${tc(m.x.tier)}"><b>${esc(m.x.id)}</b> ${raceB(m.x.race)}<i class="num">${r0(m.x.r)}</i></span><em>VS</em><span style="--tc:${tc(m.y.tier)}"><b>${esc(m.y.id)}</b> ${raceB(m.y.race)}<i class="num">${r0(m.y.r)}</i></span></div>
+      <div class="h3">추천 매치업<em>들어올 때마다 무작위로 바뀝니다</em></div><div class="mups">${picks.map(m => `<a class="mup" href="#/vs/${encodeURIComponent(m.x.k)}/${encodeURIComponent(m.y.k)}">
+        <div class="pp"><span style="--tc:${tc(m.x.tier)}"><b>${esc(m.x.id)}</b> ${raceB(m.x.race)}<i class="num">${r0(m.x.r)}</i></span><em>VS</em><span style="--tc:${tc(m.y.tier)}"><b>${esc(m.y.id)}</b> ${raceB(m.y.race)}<i class="num">${r0(m.y.r)}</i></span></div>
         <div class="ep">예상 승률 ${(expect(m.x.r, m.y.r) * 100).toFixed(0)} : ${(100 - expect(m.x.r, m.y.r) * 100).toFixed(0)}</div></a>`).join("")}</div>`;
     return;
   }
