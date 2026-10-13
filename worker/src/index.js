@@ -5,7 +5,7 @@
 //  2) 공식리그 시트 링크 보관 + 링크를 넣으면 바로 '시트 분석' (어느 열이 승자·패자·날짜인지 찾아냄)
 //  3) 카페 ELO 결과입력 게시판 설정 보관
 //  4) 등급조정 설정·수동 지정 보관 (관리자만 읽고 쓴다)
-//  5) 래더 계정 추가/빼기 — 래더 중계소(ks-replay)와 같은 'ops' 목록에 넣는다
+//  (래더 계정 추가/빼기는 사이트가 기존 래더 중계소 ks-replay 에 직접 보낸다)
 //
 // 매일 새벽 깃허브 자동실행이 이 보관함(KV)을 읽어 데이터를 다시 계산한다.
 
@@ -257,8 +257,6 @@ export default {
       return 답({ ok: true, list: L.slice(-15).reverse().map(x => ({ date: x.date, league: x.league, map: x.map, winner: x.winner, loser: x.loser, t: x.t })) });
     }
 
-    // 래더 계정 목록(공개) — ks-replay 와 같은 'ops'
-    if (길 === '/ladder/ops' && req.method === 'GET') return 답({ ok: true, ops: await 읽기(env, 'ops', []) });
 
     // ── 여기부터 관리자만 ──
     if (!(await 관리자냐(env, req))) return 답({ ok: false, msg: '다시 로그인해 주세요.' }, 401);
@@ -347,22 +345,6 @@ export default {
       const L = (await 읽기(env, 'elo:fix', [])).filter(f => f.sig !== body.sig);
       await 쓰기(env, 'elo:fix', L);
       return 답({ ok: true, list: L });
-    }
-
-    if (길 === '/ladder/save' && req.method === 'POST') {
-      const act = body.act === 'del' ? 'del' : 'add';
-      const toon = 짧게(body.toon, 40);
-      if (!toon) return 답({ ok: false, msg: '래더 계정 이름을 적어 주세요.' }, 400);
-      const ops = (await 읽기(env, 'ops', [])).filter(o => o.toon.toLowerCase() !== toon.toLowerCase());
-      ops.push({ k: crypto.randomUUID().slice(0, 8), t: Date.now(), act, id: 짧게(body.id, 40) || toon.split('[')[0], toon, tier: 짧게(body.tier, 20) });
-      if (ops.length > 300) return 답({ ok: false, msg: '변경 목록이 너무 많습니다.' }, 400);
-      await 쓰기(env, 'ops', ops);
-      return 답({ ok: true, ops });
-    }
-    if (길 === '/ladder/undo' && req.method === 'POST') {
-      const ops = (await 읽기(env, 'ops', [])).filter(o => o.k !== body.k);
-      await 쓰기(env, 'ops', ops);
-      return 답({ ok: true, ops });
     }
 
     return 답({ ok: false, msg: '없는 주소입니다.' }, 404);

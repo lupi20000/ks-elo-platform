@@ -51,8 +51,10 @@ jobs:
 
       - name: 관리자 서버 올리기
         if: steps.chk.outputs.go == '1'
-        working-directory: worker
-        run: npx --yes wrangler@3 deploy
+        run: |
+          KV=$(bash tools/kvns.sh)
+          sed -i "s/__KV_ID__/$KV/" worker/wrangler.toml
+          cd worker && npx --yes wrangler@3 deploy
 
       - name: 사이트 묶기 (난독화 · 데이터 섞기)
         if: steps.chk.outputs.go == '1'
