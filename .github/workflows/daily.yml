@@ -54,7 +54,7 @@ jobs:
         run: |
           KV_NS=$(bash tools/kvns.sh); echo "KV_NS=$KV_NS" >> "$GITHUB_ENV"
           get() {  # $1 = 키, $2 = 저장할 파일, $3 = 없을 때 기본값
-            if npx --yes wrangler@3 kv key get --namespace-id="$KV_NS" --remote "$1" > "$2" 2>/dev/null \
+            if KV_NS="$KV_NS" bash tools/kv.sh get "$1" "$2" \
                && python -c "import json,sys; json.load(open(sys.argv[1], encoding='utf-8'))" "$2" 2>/dev/null; then
               echo "$1: 받음"
             else
@@ -100,8 +100,8 @@ jobs:
         if: steps.check.outputs.skip != 'true' && env.CLOUDFLARE_API_TOKEN != '' && hashFiles('out/srcstat.json') != ''
         continue-on-error: true
         run: |
-          npx --yes wrangler@3 kv key put --namespace-id="$KV_NS" --remote "elo:srcstat" --path out/srcstat.json > /dev/null && echo "elo:srcstat 올림"
-          if [ -f out/ladder_report.json ]; then npx --yes wrangler@3 kv key put --namespace-id="$KV_NS" --remote "elo:ladstat" --path out/ladder_report.json > /dev/null && echo "elo:ladstat 올림"; fi
+          bash tools/kv.sh put "elo:srcstat" out/srcstat.json && echo "elo:srcstat 올림"
+          if [ -f out/ladder_report.json ]; then bash tools/kv.sh put "elo:ladstat" out/ladder_report.json && echo "elo:ladstat 올림"; fi
 
       - name: 커밋·푸시
         id: commit
