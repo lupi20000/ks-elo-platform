@@ -73,6 +73,10 @@ const dl = v => v == null ? `<span class="dl z">NEW</span>` : Math.abs(v) < 0.5 
 const isoD = d => day2date(d).toISOString().slice(0, 10);
 const sig = g => `${isoD(g[0])}|${D.leagues[g[1]].name}|${P[g[3]].k}|${P[g[4]].k}|${g[2] >= 0 ? D.maps[g[2]] : ""}#${g[10] || 0}`;
 const mapN = g => g[2] >= 0 && D.maps[g[2]] ? D.maps[g[2]] : "확인불가";
+const ME = { get: () => { try { return localStorage.getItem("ksMe") || ""; } catch { return ""; } },
+  set: k => { try { k ? localStorage.setItem("ksMe", k) : localStorage.removeItem("ksMe"); } catch { } } };
+const monthOf = d => { const x = day2date(d); return D.months.indexOf(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}`); };
+const ratingAt = (i, m) => { const h = P[i].h; let r = null; for (const x of h) { if (x[0] <= m) r = x[1]; else break; } return r; };
 const expect = (a, b) => 1 / (1 + Math.pow(10, (b - a) / 400));
 const tmC = n => "var(--brass2)";
 const teamB = n => n ? `<span class="team" style="--tm:${tmC(n)}">${esc(n)}</span>` : "";
@@ -147,7 +151,9 @@ function viewRank() {
   app.innerHTML = `
     <div class="h ptitle"><h2><small>현재 클랜원 · 전 리그 통합 · 최근 경기일수록 무겁게</small><span class="w1"><span class="gold">ELO</span></span> <span class="w2">Power</span> <span class="w3">Ranking</span></h2>
       <div class="aside"><b class="num gold">${ranked.length}</b>정식 순위 선수</div></div>
+    ${meCard()}
     <div class="podium">${pod}</div>
+    ${risersAndUpsets()}
     <div class="bar">
       <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
         <input id="q" placeholder="아이디 검색" value="${esc(RS.q)}" autocomplete="off"></label>
@@ -173,6 +179,7 @@ function viewRank() {
     RS.limit = 60; viewRank();
   };
   $("#more").onclick = () => { RS.limit += 100; drawRank(); };
+  app.onclick = e => { if (e.target.closest("[data-unpin]")) { e.preventDefault(); ME.set(""); viewRank(); } };
   drawRank();
   app.querySelectorAll(".cu").forEach(countUp);
 }
@@ -203,6 +210,64 @@ function drawRank() {
   $("#more").style.display = L.length > RS.limit ? "" : "none";
   $("#rt thead").onclick = e => { const s = e.target.closest("[data-s]")?.dataset.s; if (!s) return; RS.dir = RS.sort === s ? -RS.dir : -1; RS.sort = s; drawRank(); };
   $("#rt tbody").onclick = e => { const k = e.target.closest("tr[data-k]")?.dataset.k; if (k) location.hash = `#/p/${encodeURIComponent(k)}`; };
+}
+
+function meCard() {
+  const i = keyIdx[ME.get()]; if (i == null) return "";
+  const p = P[i], d = delta(p);
+  return `<a class="mecard" href="${pLink(i)}" style="--tc:${tc(p.tier)}"><span class="mk">MY</span><b>${esc(p.id)}</b> ${raceB(p.race)} ${tierB(p.tier)}
+    <span class="mv num">${r0(p.r)}</span><span class="mr">${rankAll[i] ? `클랜 #${rankAll[i]}` : "기록 부족"}${rankTier[i] ? ` · ${esc(p.tier)} #${rankTier[i]}` : ""}</span>${dl(d)}<span class="mx" data-unpin="1" title="고정 해제">×</span></a>`;
+}
+function risersAndUpsets() {
+  const up = ranked.map(p => ({ p, d: delta(p) })).filter(x => x.d != null && x.d > 0.5).sort((a, b) => b.d - a.d).slice(0, 5);
+  const last = G.length ? G[G.length - 1][0] : 0, ups = [];
+  for (let j = G.length - 1; j >= 0 && G[j][0] >= last - 60; j--) {
+    const g = G[j], m = monthOf(g[0]) - 1, wr = ratingAt(g[3], m), lr = ratingAt(g[4], m);
+    if (wr != null && lr != null && lr - wr >= 100) ups.push({ g, wr, lr, d: lr - wr });
+  }
+  ups.sort((a, b) => b.d - a.d);
+  if (!up.length && !ups.length) return "";
+  return `<div class="grid c2 hot">
+    ${up.length ? `<div class="card"><h3>이달의 급상승<em>지난달 말 대비 ELO</em></h3><div class="risers">${up.map((x, n) => `<a class="riser" href="${pLink(x.p.i)}" style="--tc:${tc(x.p.tier)}">
+      <span class="rn num">${n + 1}</span><span class="rid"><b>${esc(x.p.id)}</b> ${raceB(x.p.race)}<i>${esc(x.p.tier || "")} · ${r0(x.p.r)}</i></span><span class="dl up num">▲${r0(x.d)}</span></a>`).join("")}</div></div>` : ""}
+    ${ups.length ? `<div class="card"><h3>최근 이변<em>최근 60일 · 경기 당시 점수 차이 100점 이상</em></h3><div class="upsets">${ups.slice(0, 5).map(x => `<a class="upset" href="#/vs/${encodeURIComponent(P[x.g[3]].k)}/${encodeURIComponent(P[x.g[4]].k)}">
+      <span class="ud num">+${r0(x.d)}</span><span class="ut"><b>${esc(P[x.g[3]].id)}</b> <i class="num">${r0(x.wr)}</i> 승 <span>vs ${esc(P[x.g[4]].id)} <i class="num">${r0(x.lr)}</i></span></span><span class="uw">${fmtD(x.g[0]).slice(5)} · ${esc(D.leagues[x.g[1]].name)}</span></a>`).join("")}</div></div>` : ""}
+  </div>`;
+}
+
+/* ---------- 선수 카드 이미지 ---------- */
+async function saveCard(i) {
+  const p = P[i], W = 1080, H = 1350, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d"), css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
+  try { await document.fonts.ready; } catch { }
+  const tcol = v("--" + (p.tier || "none")) || "#888", disp = '"Big Shoulders Display", "Arial Narrow", sans-serif', body = '"IBM Plex Sans KR", sans-serif';
+  let g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, "#fff8ef"); g.addColorStop(1, "#efe9f6"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const glow = (cx, cy, r, col) => { const rg = x.createRadialGradient(cx, cy, 0, cx, cy, r); rg.addColorStop(0, col); rg.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = rg; x.fillRect(0, 0, W, H); };
+  glow(0, 0, 900, "rgba(190,60,100,.22)"); glow(W, 260, 800, "rgba(60,90,190,.18)"); glow(W / 2, H, 700, "rgba(226,162,74,.22)");
+  x.save(); x.globalAlpha = .18; x.fillStyle = tcol; x.beginPath(); x.moveTo(0, 0); x.lineTo(W * .62, 0); x.lineTo(W * .38, H * .55); x.lineTo(0, H * .55); x.fill(); x.restore();
+  x.fillStyle = tcol; x.fillRect(0, 0, 14, H);
+  const brass = (y0, y1) => { const b = x.createLinearGradient(0, y0, 0, y1); b.addColorStop(0, "#f3c654"); b.addColorStop(.6, "#c9871c"); b.addColorStop(1, "#8a4d0e"); return b; };
+  x.fillStyle = "#1c1317"; x.font = `600 30px ${body}`; x.fillText("kS CLAN ELO", 70, 100);
+  x.fillStyle = "#8c7a83"; x.font = `500 26px ${body}`; x.fillText(`${p.tier || "미배정"} · ${RACE_KO[p.race] || ""}${p.off ? " · 부종" : ""}`, 70, 145);
+  x.fillStyle = "#1c1317"; let fs = 200; x.font = `900 ${fs}px ${disp}`; while (x.measureText(p.id).width > W - 140 && fs > 80) { fs -= 8; x.font = `900 ${fs}px ${disp}`; }
+  x.fillText(p.id, 64, 150 + fs * .9);
+  const ry = 150 + fs * .9 + 260; x.fillStyle = brass(ry - 230, ry); x.font = `900 280px ${disp}`; x.fillText(String(r0(p.r)), 64, ry);
+  x.fillStyle = "#8c7a83"; x.font = `600 30px ${body}`; x.fillText("ELO", 70 + x.measureText("").width, ry + 50);
+  const stat = (lbl, val, sx) => { x.fillStyle = "#1c1317"; x.font = `900 76px ${disp}`; x.fillText(val, sx, ry + 170); x.fillStyle = "#8c7a83"; x.font = `500 26px ${body}`; x.fillText(lbl, sx, ry + 210); };
+  stat("클랜 순위", rankAll[i] ? "#" + rankAll[i] : "—", 70); stat(`${p.tier || "티어"} 내`, rankTier[i] ? "#" + rankTier[i] : "—", 350);
+  stat("통산 전적", `${p.w}-${p.l}`, 600); stat("승률", pctS(p.w, p.w + p.l), 860 - 40);
+  const h = p.h.slice(-18); if (h.length > 1) {   // 최근 레이팅 흐름
+    const y0 = ry + 260, y1 = H - 190, lo = Math.min(...h.map(z => z[1])) - 20, hi = Math.max(...h.map(z => z[1])) + 20;
+    const X = k => 70 + k * (W - 140) / (h.length - 1), Y = r => y1 - (r - lo) / (hi - lo) * (y1 - y0);
+    x.beginPath(); h.forEach((z, k) => k ? x.lineTo(X(k), Y(z[1])) : x.moveTo(X(k), Y(z[1]))); x.strokeStyle = tcol === "#141012" ? "#1c1317" : tcol; x.lineWidth = 7; x.lineJoin = "round"; x.stroke();
+    x.fillStyle = "#b8641c"; x.beginPath(); x.arc(X(h.length - 1), Y(h.at(-1)[1]), 12, 0, 7); x.fill();
+  }
+  const form = byP[i].slice(-10); form.forEach((j, k) => { const w = G[j][3] === i; x.fillStyle = w ? "#109257" : "rgba(212,42,70,.15)"; x.fillRect(70 + k * 64, H - 150, 52, 52);
+    x.fillStyle = w ? "#fff" : "#d42a46"; x.font = `900 30px ${disp}`; x.fillText(w ? "W" : "L", 70 + k * 64 + 15, H - 112); });
+  x.fillStyle = "#8c7a83"; x.font = `500 24px ${body}`; x.textAlign = "right"; x.fillText(`ks-clan-elo.pages.dev · ${D.meta.updated.slice(0, 10)}`, W - 60, H - 40);
+  const blob = await new Promise(r => c.toBlob(r, "image/png")), name = `kS-ELO_${p.id}.png`, file = new File([blob], name, { type: "image/png" });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } } catch (e) { if (e.name === "AbortError") return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
 }
 
 /* ---------- 선수 ---------- */
@@ -272,6 +337,7 @@ function viewPlayer(k) {
         ${isRanked(p) ? "" : `<span class="prov">잠정 — 유효경기 ${p.eff.toFixed(1)}</span>`}
         ${sibs.map(s => `<a class="chip" href="${pLink(s.i)}">${esc(s.id)}</a>`).join("")}</div>
       <div class="form" style="margin-top:12px">${form}</div>
+      <div class="pbtn"><button class="btn sm" id="pin">${ME.get() === p.k ? "★ 내 아이디로 고정됨" : "☆ 내 아이디로 고정"}</button><button class="btn sm" id="card">이미지 저장</button></div>
     </div>
     <div class="big">
       <div class="kv acc"><b class="num">${r0(p.r)}</b><span>ELO</span></div>
@@ -319,6 +385,8 @@ function viewPlayer(k) {
   </div>
   <p style="color:var(--ink3);font-size:12px;margin-top:14px">기록 기간 ${p.first ? p.first.replaceAll("-", ".") : "—"} ~ ${p.last ? p.last.replaceAll("-", ".") : "—"} · 감쇠 유효경기 ${p.eff.toFixed(1)}</p>`;
   app.onclick = e => { const v = e.target.closest("[data-vs]")?.dataset.vs; if (v) location.hash = `#/vs/${encodeURIComponent(p.k)}/${encodeURIComponent(v)}`; };
+  $("#pin").onclick = () => { const on = ME.get() === p.k; ME.set(on ? "" : p.k); $("#pin").textContent = on ? "☆ 내 아이디로 고정" : "★ 내 아이디로 고정됨"; };
+  $("#card").onclick = async () => { const b = $("#card"); b.disabled = true; b.textContent = "만드는 중…"; try { await saveCard(i); } finally { b.disabled = false; b.textContent = "이미지 저장"; } };
 }
 
 /* ---------- KPL ---------- */
