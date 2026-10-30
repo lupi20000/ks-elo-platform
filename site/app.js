@@ -3,10 +3,7 @@
 "use strict";
 const API = "https://ks-elo-api.afterworkting.workers.dev";
 // 래더 계정 추가/빼기는 기존 래더 중계소(다른 클라우드플레어 계정)에 바로 보낸다 — 래더 관리자 아이디로 로그인
-const RELAY = "https://ks-replay.lupi20000.workers.dev";
 // 래더 아이디 등록요청 = 래더 사이트와 같은 구글폼 (매일 밤 래더 갱신기가 반영)
-const FORM = "https://docs.google.com/forms/d/e/1FAIpQLSeVYyzMDcQDs8yQe5q0qjwC15HKCRerurWzlCZokYzbEbm-7w/formResponse";
-const FORM_F = { id: "entry.369104941", toon: "entry.966346034", tier: "entry.1216524568" };
 const PACK_KEY = "kS-ELO::clan-rating";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -744,7 +741,7 @@ function viewLadder(k) {
         <div class="fld"><label for="r_toon">래더 계정 이름</label><input id="r_toon" placeholder="예: rox[kS]" autocomplete="off"></div>
         <div class="fld"><label for="r_tier">클랜 티어</label><select id="r_tier"><option value="">선택</option>${T.map(t => `<option>${t}</option>`).join("")}</select></div>
         <button class="btn pri" id="r_go">등록하기</button></div>
-      <p class="msg" id="r_msg" style="margin:10px 0 0">cwal.gg에 있는 계정만 올라갑니다. 매일 밤 반영 · 잘못 넣은 계정은 운영진이 지울 수 있습니다.</p></details>
+      <p class="msg" id="r_msg" style="margin:10px 0 0">cwal.gg에 있는 계정만 올라갑니다. 매일 아침 반영 · 잘못 넣은 계정은 운영진이 지울 수 있습니다.</p></details>
     <div class="panel scroll"><table class="tbl"><thead><tr><th class="r">#</th><th></th><th>선수</th><th class="r">래더</th><th class="r hide-m">전체순위</th><th class="r hide-m">시즌</th><th class="r">클랜 ELO</th></tr></thead><tbody>
     ${L.map((p, n) => `<tr data-k="${esc(p.k)}"><td class="rk r num ${n < 3 ? "t3" : ""}">${n + 1}</td><td class="stripe" style="--tc:${tc(p.tier)}"></td>
       <td class="nm">${esc(p.id)} ${raceB(p.lad.race || p.race)}<span class="sub">${esc(p.lad.toon)}</span></td>
@@ -756,10 +753,10 @@ function viewLadder(k) {
     const id = $("#r_id").value.trim(), toon = $("#r_toon").value.trim(), tier = $("#r_tier").value, msg = $("#r_msg");
     if (!id || !toon || !tier) { msg.className = "msg no"; msg.textContent = "세 칸을 모두 채워 주세요."; return; }
     if (!/^[A-Za-z0-9_.\-\[\]()]{2,30}$/.test(id) || !/^[A-Za-z0-9_.\-\[\]()]{2,40}$/.test(toon)) { msg.className = "msg no"; msg.textContent = "아이디와 계정 이름은 영어·숫자로만 적어 주세요."; return; }
-    const fd = new FormData(); fd.append(FORM_F.id, id); fd.append(FORM_F.toon, toon); fd.append(FORM_F.tier, tier);
     $("#r_go").disabled = true; msg.className = "msg"; msg.innerHTML = `<span class="spin"></span> 보내는 중…`;
-    try { await fetch(FORM, { method: "POST", mode: "no-cors", body: fd }); msg.className = "msg ok"; msg.textContent = `등록 요청 완료: ${toon}. 오늘 밤 래더 갱신 때 반영됩니다.`; $("#r_id").value = $("#r_toon").value = ""; $("#r_tier").value = ""; }
-    catch { msg.className = "msg no"; msg.textContent = "지금은 접수가 안 됩니다. 잠시 뒤 다시 눌러 주세요."; }
+    const r = await api("/ladder/request", { id, toon, tier });
+    if (r.ok) { msg.className = "msg ok"; msg.textContent = r.msg; $("#r_id").value = $("#r_toon").value = ""; $("#r_tier").value = ""; }
+    else { msg.className = "msg no"; msg.textContent = r.msg || "지금은 접수가 안 됩니다. 잠시 뒤 다시 눌러 주세요."; }
     $("#r_go").disabled = false;
   };
 }
@@ -995,40 +992,34 @@ function promote(s, OV) {
   });
   return { rows, bound };
 }
-const LTOK = { get: () => { try { return localStorage.getItem("ksLadTok") || sessionStorage.getItem("ksLadTok") || ""; } catch { return ""; } },
-  set: (t, keep) => { try { (keep ? localStorage : sessionStorage).setItem("ksLadTok", t); } catch { } }, clear: () => { try { localStorage.removeItem("ksLadTok"); sessionStorage.removeItem("ksLadTok"); } catch { } } };
-async function relay(path, body) {
-  const opt = { method: body ? "POST" : "GET", headers: { "x-token": LTOK.get() } };
-  if (body) { opt.headers["content-type"] = "application/json"; opt.body = JSON.stringify(body); }
-  try { const r = await fetch(RELAY + path, opt); return await r.json().catch(() => ({ ok: false, msg: "응답을 읽지 못했습니다." })); }
-  catch { return { ok: false, msg: "래더 중계소에 연결하지 못했습니다." }; }
-}
 async function adminLadder(el) {
   el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
-  if (!LTOK.get() || !(await relay("/admin/me")).ok) {
-    el.innerHTML = `<div class="card hl" style="max-width:520px"><h3>래더 관리자 로그인<em>기존 래더 사이트 관리자 아이디</em></h3>
-      <p class="msg">래더 계정 목록은 기존 래더 중계소에 보관돼 있어서, 래더 관리자 아이디로 한 번 더 로그인합니다.</p>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr"><div class="fld"><label for="lu">아이디</label><input id="lu" autocomplete="username"></div><div class="fld"><label for="lp">비밀번호</label><input id="lp" type="password" autocomplete="current-password"></div></div>
-      <label class="keep" style="display:flex;gap:8px;margin:12px 0;font-size:12.5px;color:var(--ink2)"><input type="checkbox" id="lk" checked> 이 기기에서 로그인 유지 (30일)</label>
-      <div class="btns"><button class="btn pri" id="lgo">로그인</button><span class="msg" id="lmsg"></span></div></div>`;
-    const go = async () => { const r = await relay("/admin/login", { u: $("#lu").value.trim(), p: $("#lp").value, keep: $("#lk").checked });
-      if (r.ok) { LTOK.set(r.token, $("#lk").checked); adminLadder(el); } else { $("#lmsg").className = "msg no"; $("#lmsg").textContent = r.msg || "로그인하지 못했습니다."; } };
-    $("#lgo").onclick = go; $("#lp").onkeydown = e => e.key === "Enter" && go();
-    return;
-  }
-  const r = await relay("/admin/ops");
-  const ops = r.ok ? r.ops : [];
+  const r = await api("/ladder");
+  if (r.auth === false) return adminGate();
+  const ops = r.ok ? r.ops : [], reqs = r.ok ? r.reqs : [], st = (r.ok && r.stat) || {};
+  const okT = new Set((st.ok || []).map(x => (x.ladderId || "").toLowerCase())), noT = new Set((st.notfound || []).map(x => (x.ladderId || "").toLowerCase()));
   const L = P.filter(p => p.lad && !p.off).sort((a, b) => a.id.localeCompare(b.id));
-  el.innerHTML = `<div class="card hl"><h3>래더 계정 직접 추가<em>다음 래더 갱신(매일 밤)에 반영</em></h3>
+  const when = t => new Date(t).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" });
+  el.innerHTML = `${r.ok ? "" : `<div class="notice red"><b>!</b><div>${esc(r.msg || "래더 목록을 못 불러왔습니다.")}</div></div>`}
+    <div class="card hl"><h3>지난 래더 갱신<em>${esc(st.updated || "아직 기록 없음")}</em></h3>
+      <p class="msg">순위에 오른 계정 <b>${st.rows ?? "—"}</b>개 · 계정 못 찾은 클랜원 <b>${(st.missing || []).length}</b>명 · 등록요청 반영 <b>${(st.ok || []).length}</b> / 못 찾음 <b>${(st.notfound || []).length}</b>${(st.errors || []).length ? ` · 오류 ${st.errors.length}건` : ""}</p>
+      ${(st.notfound || []).length ? `<details style="margin-top:8px"><summary class="msg">못 찾은 등록요청 보기</summary><p class="msg selectable">${st.notfound.map(x => esc(`${x.clanId} → ${x.ladderId}`)).join(" · ")}</p></details>` : ""}</div>
+    <div class="h3">등록 요청<em>래더 화면에서 들어온 신청 · 매일 아침 갱신 때 cwal.gg에서 찾아 붙입니다</em></div>
+    <div class="panel">${reqs.length ? `<table class="mini"><tr><th>클랜 아이디</th><th>래더 계정</th><th>티어</th><th>신청</th><th>결과</th><th></th></tr>
+      ${reqs.slice().reverse().map(q => { const t = q.toon.toLowerCase();
+        return `<tr><td>${esc(q.id)}</td><td class="selectable">${esc(q.toon)}</td><td>${esc(q.tier)}</td><td class="num">${when(q.t)}</td>
+        <td>${okT.has(t) ? `<span class="dec up">반영됨</span>` : noT.has(t) ? `<span class="dec dn">못 찾음</span>` : `<span class="sub">대기</span>`}</td>
+        <td><button class="btn sm" data-rq="${esc(q.k)}">지우기</button></td></tr>`; }).join("")}</table>` : `<div class="empty">들어온 신청이 없습니다</div>`}</div>
+    <div class="card hl" style="margin-top:14px"><h3>래더 계정 직접 추가<em>[kS] 태그가 없어도 순위에 올림 · 다음 갱신에 반영</em></h3>
       <div class="reg"><div class="fld"><label for="a_id">클랜 아이디</label><input id="a_id"></div><div class="fld"><label for="a_toon">래더 계정</label><input id="a_toon" placeholder="예: rox[kS]"></div>
         <div class="fld"><label for="a_tier">티어</label><select id="a_tier"><option value="">선택</option>${T.map(t => `<option>${t}</option>`).join("")}</select></div><button class="btn pri" id="a_go">추가</button></div>
       <p class="msg" id="a_msg"></p></div>
-    <div class="h3">대기 중인 변경<em>래더 갱신기가 읽어 갈 목록 · 잘못 넣었으면 취소</em></div>
+    <div class="h3">관리자 변경 목록<em>매일 갱신 때마다 적용 · 취소하면 원래대로</em></div>
     <div class="panel">${ops.length ? `<table class="mini"><tr><th>구분</th><th>클랜 아이디</th><th>래더 계정</th><th>티어</th><th>넣은 때</th><th></th></tr>
       ${ops.slice().reverse().map(o => `<tr><td>${o.act === "del" ? `<span class="dec dn">빼기</span>` : `<span class="dec up">추가</span>`}</td><td>${esc(o.id)}</td><td class="selectable">${esc(o.toon)}</td><td>${esc(o.tier || "")}</td>
-        <td class="num">${new Date(o.t).toLocaleDateString("ko-KR")}</td><td><button class="btn sm" data-undo="${esc(o.k)}">취소</button></td></tr>`).join("")}</table>` : `<div class="empty">대기 중인 변경이 없습니다</div>`}</div>
+        <td class="num">${when(o.t)}</td><td><button class="btn sm" data-undo="${esc(o.k)}">취소</button></td></tr>`).join("")}</table>` : `<div class="empty">변경이 없습니다</div>`}</div>
     <div class="h3">현재 연결된 계정<em>${L.length}개 · 빼기를 누르면 다음 갱신 때 래더 순위에서 빠집니다</em></div>
-    <div class="bar"><label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="lq" placeholder="아이디·계정 검색"></label><button class="btn sm" id="lout">래더 로그아웃</button></div>
+    <div class="bar"><label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="lq" placeholder="아이디·계정 검색"></label></div>
     <div class="panel scroll"><table class="tbl" id="lt"><tbody></tbody></table></div>`;
   const draw = () => { const q = $("#lq").value.trim().toLowerCase();
     $("#lt tbody").innerHTML = L.filter(p => !q || p.id.toLowerCase().includes(q) || p.lad.toon.toLowerCase().includes(q)).map(p => {
@@ -1036,15 +1027,15 @@ async function adminLadder(el) {
       return `<tr class="static"><td class="stripe" style="--tc:${tc(p.tier)}"></td><td class="nm">${esc(p.id)}<span class="sub selectable">${esc(p.lad.toon)}</span></td><td class="r num" style="font-size:18px">${p.lad.rating || "—"}</td>
         <td class="r">${pend ? `<span class="dec dn">빼기 대기</span>` : `<button class="btn sm del" data-del="${esc(p.lad.toon)}" data-id="${esc(p.id)}">빼기</button>`}</td></tr>`; }).join(""); };
   draw(); $("#lq").oninput = draw;
-  $("#lout").onclick = () => { LTOK.clear(); adminLadder(el); };
   const say = (t, ok) => { $("#a_msg").className = ok ? "msg ok" : "msg no"; $("#a_msg").textContent = t; };
   $("#a_go").onclick = async () => { const id = $("#a_id").value.trim(), toon = $("#a_toon").value.trim(), tier = $("#a_tier").value;
     if (!toon) return say("래더 계정 이름을 적어 주세요.");
-    const s = await relay("/admin/save", { act: "add", id, toon, tier }); if (s.ok) adminLadder(el); else say(s.msg); };
+    const s = await api("/ladder/save", { act: "add", id, toon, tier }); if (s.ok) adminLadder(el); else say(s.msg); };
   el.onclick = async e => {
-    const u = e.target.closest("[data-undo]"); if (u) { await relay("/admin/undo", { k: u.dataset.undo }); return adminLadder(el); }
+    const u = e.target.closest("[data-undo]"); if (u) { await api("/ladder/undo", { k: u.dataset.undo }); return adminLadder(el); }
+    const q = e.target.closest("[data-rq]"); if (q) { await api("/ladder/reqdel", { k: q.dataset.rq }); return adminLadder(el); }
     const d = e.target.closest("[data-del]"); if (d) { if (d.dataset.sure !== "1") { d.dataset.sure = "1"; d.textContent = "정말 빼기"; return; }
-      const s = await relay("/admin/save", { act: "del", toon: d.dataset.del, id: d.dataset.id }); if (s.ok) adminLadder(el); else say(s.msg); }
+      const s = await api("/ladder/save", { act: "del", toon: d.dataset.del, id: d.dataset.id }); if (s.ok) adminLadder(el); else say(s.msg); }
   };
 }
 function adminHealth(el) {

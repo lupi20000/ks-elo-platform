@@ -66,6 +66,17 @@ jobs:
           get "elo:submits" tools/_submits.json '[]'
           get "elo:fix" tools/_fix.json '[]'
           get "elo:cafeposts" tools/_cafeposts.json '{}'
+          get "elo:ladreq" tools/_ladreq.json '[]'
+          get "elo:ladops" tools/_ladops.json '[]'
+
+      - name: 래더 모으기 (cwal.gg, 10분 남짓)
+        if: steps.check.outputs.skip != 'true'
+        continue-on-error: true
+        timeout-minutes: 40
+        env:
+          ELO_LADREQ_FILE: tools/_ladreq.json
+          ELO_LADOPS_FILE: tools/_ladops.json
+        run: python tools/ladder.py
 
       - name: 카페 결과입력란 모으기
         if: steps.check.outputs.skip != 'true'
@@ -88,7 +99,9 @@ jobs:
       - name: 출처 상태 올리기(KV)
         if: steps.check.outputs.skip != 'true' && env.CLOUDFLARE_API_TOKEN != '' && hashFiles('out/srcstat.json') != ''
         continue-on-error: true
-        run: npx --yes wrangler@3 kv key put --namespace-id="$KV_NS" --remote "elo:srcstat" --path out/srcstat.json > /dev/null && echo "elo:srcstat 올림"
+        run: |
+          npx --yes wrangler@3 kv key put --namespace-id="$KV_NS" --remote "elo:srcstat" --path out/srcstat.json > /dev/null && echo "elo:srcstat 올림"
+          if [ -f out/ladder_report.json ]; then npx --yes wrangler@3 kv key put --namespace-id="$KV_NS" --remote "elo:ladstat" --path out/ladder_report.json > /dev/null && echo "elo:ladstat 올림"; fi
 
       - name: 커밋·푸시
         id: commit
@@ -96,7 +109,7 @@ jobs:
         run: |
           git config user.name "ks-elo-bot"
           git config user.email "ks-elo-bot@users.noreply.github.com"
-          git add site/data.json 검증-리포트.md
+          git add site/data.json 검증-리포트.md data/ladder_roster.json
           if git diff --cached --quiet; then
             echo "바뀐 것 없음"; echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
           fi

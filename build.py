@@ -93,6 +93,16 @@ def fetch_sheet(name):
 def fetch_ladder():
     path = os.path.join(RAW, "ladder.json")
     status = "캐시"
+    own = os.path.join(OUT, "ladder.json")      # tools/ladder.py 가 방금 만든 래더 (이게 원본)
+    if os.path.exists(own):
+        try:
+            d = json.load(open(own, encoding="utf-8"))
+            json.dump(d, open(path, "w", encoding="utf-8"), ensure_ascii=False)
+            SRC_STATUS.append({"name": "ladder", "label": "kS 래더 (cwal.gg, ELO 사이트 자체 수집)", "status": "수집",
+                               "rows": len(d.get("rows", [])), "updated": d.get("updated")})
+            return d
+        except Exception as e:
+            print("자체 래더 파일을 못 읽음:", type(e).__name__)
     if not OFFLINE:
         try:
             req = urllib.request.Request(CFG["sources"]["ladder"]["url"], headers={"User-Agent": "Mozilla/5.0"})
@@ -117,6 +127,12 @@ LADDER_ROSTER_URL = "https://lupi20000.github.io/ks-clan-ladder/" + urllib.parse
 def fetch_ladder_roster():
     """클랜 래더 명단(닉변 old 필드용). 인터넷 → 원본/ 캐시 → 참고/ 로컬 사본 순서로 찾는다"""
     cache = os.path.join(RAW, "ladder_roster.json")
+    own = os.path.join(HERE, "data", "ladder_roster.json")
+    if os.path.exists(own):
+        try:
+            return json.load(open(own, encoding="utf-8"))
+        except Exception:
+            pass
     if not OFFLINE:
         try:
             req = urllib.request.Request(LADDER_ROSTER_URL, headers={"User-Agent": "Mozilla/5.0"})
@@ -126,7 +142,7 @@ def fetch_ladder_roster():
                 return d
         except Exception as e:
             print("래더 명단 수집 실패:", type(e).__name__)
-    for path in (cache, os.path.join(HERE, "참고", "ks-clan-ladder", "명단.json")):
+    for path in (os.path.join(HERE, "data", "ladder_roster.json"), cache, os.path.join(HERE, "참고", "ks-clan-ladder", "명단.json")):
         if os.path.exists(path):
             try:
                 return json.load(open(path, encoding="utf-8"))
@@ -760,7 +776,7 @@ def main():
                           "standing": row.get("standing"), "race": row.get("cwalRace"),
                           "w": row.get("wins", 0), "l": row.get("losses", 0), "mu": row.get("mu", {}),
                           "est": bool(row.get("estMmr")), "gw": row.get("gateway"),
-                          "recent": [{"w": x.get("w"), "m": x.get("m"), "o": x.get("o"), "t": x.get("t")}
+                          "recent": [{"w": x.get("w"), "m": x.get("m"), "o": x.get("o"), "t": x.get("t"), "d": x.get("d"), "rp": x.get("rp")}
                                      for x in (row.get("recent") or [])[:10]]}
 
     # 선수 표

@@ -279,6 +279,22 @@ export default {
     }
 
 
+    // 래더 아이디 등록요청 (공개) — 사이트 래더 화면. 다음 새벽 갱신 때 cwal.gg 에서 찾아 붙인다
+    if (길 === '/ladder/request' && req.method === 'POST') {
+      const ip = req.headers.get('cf-connecting-ip') || 'x', rk = 'elo:rlL:' + ip;
+      const cnt = parseInt((await env.KSDATA.get(rk)) || '0', 10);
+      if (cnt >= 15) return 답({ ok: false, msg: '잠시 뒤에 다시 해 주세요.' }, 429);
+      const id = 짧게(body.id, 30), toon = 짧게(body.toon, 40), tier = 짧게(body.tier, 10);
+      if (!/^[A-Za-z0-9_.\-\[\]()]{2,30}$/.test(id) || !/^[A-Za-z0-9_.\-\[\]()]{2,40}$/.test(toon)) return 답({ ok: false, msg: '아이디와 계정 이름은 영어·숫자로만 적어 주세요.' }, 400);
+      if (!['Black', 'Gold', 'Yellow', 'Red', 'Violet', 'Blue', 'Sky', 'White'].includes(tier)) return 답({ ok: false, msg: '클랜 티어를 골라 주세요.' }, 400);
+      const L = (await 읽기(env, 'elo:ladreq', [])).filter(q => q.toon.toLowerCase() !== toon.toLowerCase());
+      L.push({ k: crypto.randomUUID().slice(0, 8), t: Date.now(), id, toon, tier });
+      while (L.length > 600) L.shift();
+      await 쓰기(env, 'elo:ladreq', L);
+      await env.KSDATA.put(rk, String(cnt + 1), { expirationTtl: 3600 });
+      return 답({ ok: true, msg: `등록 요청 완료: ${toon}. 다음 갱신(매일 아침) 때 반영됩니다.` });
+    }
+
     // ── 여기부터 관리자만 ──
     if (!(await 관리자냐(env, req))) return 답({ ok: false, msg: '다시 로그인해 주세요.' }, 401);
 
@@ -366,6 +382,30 @@ export default {
       const L = (await 읽기(env, 'elo:fix', [])).filter(f => f.sig !== body.sig);
       await 쓰기(env, 'elo:fix', L);
       return 답({ ok: true, list: L });
+    }
+
+    // 래더 관리 — 요청 목록·추가/빼기·지난 갱신 결과
+    if (길 === '/ladder' && req.method === 'GET') {
+      return 답({ ok: true, ops: await 읽기(env, 'elo:ladops', []), reqs: await 읽기(env, 'elo:ladreq', []), stat: await 읽기(env, 'elo:ladstat', {}) });
+    }
+    if (길 === '/ladder/save' && req.method === 'POST') {
+      const act = body.act === 'del' ? 'del' : 'add', toon = 짧게(body.toon, 40);
+      if (!toon) return 답({ ok: false, msg: '래더 계정 이름을 적어 주세요.' }, 400);
+      const ops = (await 읽기(env, 'elo:ladops', [])).filter(o => o.toon.toLowerCase() !== toon.toLowerCase());
+      ops.push({ k: crypto.randomUUID().slice(0, 8), t: Date.now(), act, id: 짧게(body.id, 40) || toon.split('[')[0], toon, tier: 짧게(body.tier, 20) });
+      if (ops.length > 600) return 답({ ok: false, msg: '변경 목록이 너무 많습니다.' }, 400);
+      await 쓰기(env, 'elo:ladops', ops);
+      return 답({ ok: true, ops });
+    }
+    if (길 === '/ladder/undo' && req.method === 'POST') {
+      const ops = (await 읽기(env, 'elo:ladops', [])).filter(o => o.k !== body.k);
+      await 쓰기(env, 'elo:ladops', ops);
+      return 답({ ok: true, ops });
+    }
+    if (길 === '/ladder/reqdel' && req.method === 'POST') {
+      const L = (await 읽기(env, 'elo:ladreq', [])).filter(q => q.k !== body.k);
+      await 쓰기(env, 'elo:ladreq', L);
+      return 답({ ok: true });
     }
 
     return 답({ ok: false, msg: '없는 주소입니다.' }, 404);
