@@ -96,7 +96,7 @@ function prep(data) {
   $("#stamp").innerHTML = `마지막 갱신<b>${esc(D.meta.updated)}</b>`;
   $("#foot").innerHTML = `kS CLAN ELO · 세트 ${G.length.toLocaleString()} · 선수 ${P.filter(p => !p.off).length.toLocaleString()} · 시간감쇠 반감기 ${D.meta.halfLife}일 · <a href="#/about">계산 기준</a> · <a href="#/admin">운영진</a>
     <span class="cr">© kS CLAN. 이 사이트의 디자인·코드·데이터의 무단 복제, AI 학습·재현을 금지합니다.</span>`;
-  const tk = G.slice(-28).reverse().map(g => `<span class="it"><span class="when">${fmtD(g[0]).slice(5)}</span><span class="lg">${esc(D.leagues[g[1]].name)}</span><span class="won">${esc(P[g[3]].id)}</span> 승 <span>(vs <b>${esc(P[g[4]].id)}</b>)</span></span>`).join("");
+  const tk = tickerItems();
   if (tk) $("#ticker").innerHTML = `<span class="tag">LIVE 결과</span><div class="rail"><div class="run">${tk}${tk}</div></div>`;
 }
 
@@ -216,6 +216,24 @@ function meCard() {
   const p = P[i], d = delta(p);
   return `<a class="mecard" href="${pLink(i)}" style="--tc:${tc(p.tier)}"><span class="mk">MY</span><b>${esc(p.id)}</b> ${raceB(p.race)} ${tierB(p.tier)}
     <span class="mv num">${r0(p.r)}</span><span class="mr">${rankAll[i] ? `클랜 #${rankAll[i]}` : "기록 부족"}${rankTier[i] ? ` · ${esc(p.tier)} #${rankTier[i]}` : ""}</span>${dl(d)}<span class="mx" data-unpin="1" title="고정 해제">×</span></a>`;
+}
+function hotData() {
+  const up = ranked.map(p => ({ p, d: delta(p) })).filter(x => x.d != null && x.d > 0.5).sort((a, b) => b.d - a.d);
+  const last = G.length ? G[G.length - 1][0] : 0, ups = [];
+  for (let j = G.length - 1; j >= 0 && G[j][0] >= last - 60; j--) {
+    const g = G[j], m = monthOf(g[0]) - 1, wr = ratingAt(g[3], m), lr = ratingAt(g[4], m);
+    if (wr != null && lr != null && lr - wr >= 100) ups.push({ g, wr, lr, d: lr - wr });
+  }
+  ups.sort((a, b) => b.d - a.d);
+  return { up, ups };
+}
+// 뉴스 자막: 최근 12세트 + 최근 급상승 3명 + 최근 큰 이변 5경기
+function tickerItems() {
+  const { up, ups } = hotData();
+  const sets = G.slice(-12).reverse().map(g => `<span class="it"><span class="when">${fmtD(g[0]).slice(5)}</span><span class="lg">${esc(D.leagues[g[1]].name)}</span><span class="won">${esc(P[g[3]].id)}</span> 승 <span>(vs <b>${esc(P[g[4]].id)}</b>)</span></span>`);
+  const rise = up.slice(0, 3).map(x => `<span class="it"><span class="ntag up">급상승</span><b>${esc(x.p.id)}</b> <span class="won">▲${r0(x.d)}</span> <span class="when">${r0(x.p.r)}점</span></span>`);
+  const upset = ups.slice(0, 5).map(x => `<span class="it"><span class="ntag ups">이변</span><span class="won">${esc(P[x.g[3]].id)}</span><span class="when">${r0(x.wr)}</span> 승 <span>(vs <b>${esc(P[x.g[4]].id)}</b> <span class="when">${r0(x.lr)}</span>)</span></span>`);
+  return [...sets, ...rise, ...upset].join("");
 }
 function risersAndUpsets() {
   const up = ranked.map(p => ({ p, d: delta(p) })).filter(x => x.d != null && x.d > 0.5).sort((a, b) => b.d - a.d).slice(0, 5);

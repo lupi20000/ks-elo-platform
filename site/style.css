@@ -631,3 +631,6 @@ textarea.out{width:100%;min-height:240px;background:var(--field);border:1px soli
 .upset .ut span{color:var(--ink2)}
 .upset .uw{font:500 11px var(--data);color:var(--ink3)}
 .pbtn{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.ticker .ntag{font:800 11px var(--body);padding:2px 7px;color:#fff;letter-spacing:.02em}
+.ticker .ntag.up{background:var(--up)}
+.ticker .ntag.ups{background:var(--live)}
