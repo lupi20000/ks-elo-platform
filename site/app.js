@@ -153,7 +153,6 @@ function viewRank() {
       <div class="aside"><b class="num gold">${ranked.length}</b>정식 순위 선수</div></div>
     ${meCard()}
     <div class="podium">${pod}</div>
-    ${risersAndUpsets()}
     <div class="bar">
       <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
         <input id="q" placeholder="아이디 검색" value="${esc(RS.q)}" autocomplete="off"></label>
