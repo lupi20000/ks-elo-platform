@@ -319,7 +319,8 @@ export default {
         mapping: s.mapping || null, added: Date.now(), stage: s.stage === 'live' ? 'live' : '',
         defaultDate: /^\d{4}-\d{2}-\d{2}$/.test(s.defaultDate || '') ? s.defaultDate : undefined,
         // 진행 중 리그 보여주기 방식: league 풀리그 · group 조별리그→토너먼트 · tour 토너먼트
-        format: ['league', 'group', 'tour'].includes(s.format) ? s.format : 'league',
+        format: ['league', 'group', 'tour', 'sheet'].includes(s.format) ? s.format : 'league',
+        boardUrl: /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[\w-]+/.test(s.boardUrl || '') ? 짧게(s.boardUrl, 300) : '',
         tourStart: /^\d{4}-\d{2}-\d{2}$/.test(s.tourStart || '') ? s.tourStart : '',
         tourSize: [0, 4, 8, 16, 32, 64].includes(+s.tourSize) ? +s.tourSize : 0,
       };

@@ -691,3 +691,5 @@ body.noscroll{overflow:hidden}
 .bwin .trophy{width:64px;height:auto}
 .bm.tbd{border-style:dashed}.bm.tbd .bp{color:var(--ink3)}
 .srcs .src .lfmt{grid-column:1/-1;order:3;margin-top:0;padding-top:8px;border-top:1px dashed var(--rule)}.srcs .src .lfmt .sel{width:auto}
+.sheetbox{padding:0;overflow:hidden}.sheetbox iframe{display:block;width:100%;height:min(78vh,760px);border:0;background:#fff}
+.lfmt .tbu{flex:1 1 260px}.lfmt .tbu input{flex:1;min-width:0}

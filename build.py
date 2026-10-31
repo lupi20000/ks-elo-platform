@@ -839,7 +839,8 @@ def main():
         "leagues": [{"name": s, "w": CFG["league_weight"].get(s, 1)} for s in leagues],
         "maps": maps, "srcs": srcs, "months": months,
         "live": [{"name": x.get("name") or "", "league": x.get("league") or "", "src": sidx[x.get("name")],
-                  "format": x.get("format") or "league", "tourStart": x.get("tourStart") or "", "tourSize": x.get("tourSize") or 0}
+                  "format": x.get("format") or "league", "tourStart": x.get("tourStart") or "", "tourSize": x.get("tourSize") or 0,
+                  "boardUrl": x.get("boardUrl") or ""}
                  for x in live_srcs if x.get("name") in sidx],
         "adjustments": CFG["adjustments"], "promo": CFG["promotion_defaults"],
         "players": players, "g": G,

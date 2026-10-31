@@ -527,7 +527,12 @@ function viewLive(n) {
   const jsG = fm === "group" ? js.filter(j => cut == null || G[j][0] < cut) : [], jsT = fm === "tour" ? js : fm === "group" && cut != null ? js.filter(j => G[j][0] >= cut) : [];
   const groups = fm === "group" ? groupsOf(toMatches(jsG)) : [];
   const B = jsT.length ? bracket(toMatches(jsT), +L.tourSize || 0) : null;
-  const fmName = { league: "풀리그", group: "조별리그 → 토너먼트", tour: "토너먼트" }[fm];
+  const fmName = { league: "풀리그", group: "조별리그 → 토너먼트", tour: "토너먼트", sheet: "토너먼트" }[fm];
+  // 시트에 그려진 대진표를 그대로 (읽기 전용 화면을 끼워 넣음)
+  const bm = (L.boardUrl || "").match(/spreadsheets\/d\/([\w-]+)/), bg = (L.boardUrl || "").match(/[#&?]gid=(\d+)/);
+  const sheetHTML = fm === "sheet" ? (bm ? `<div class="h3">대진표<em>리그 시트 그대로 · <a href="${esc(L.boardUrl)}" target="_blank" rel="noopener">새 창으로 크게 보기 ↗</a></em></div>
+    <div class="panel sheetbox"><iframe src="https://docs.google.com/spreadsheets/d/${bm[1]}/htmlview?gid=${bg ? bg[1] : 0}&single=true&headers=false&widget=false&chrome=false&rm=minimal" loading="lazy" title="대진표" referrerpolicy="no-referrer"></iframe></div>`
+    : `<div class="h3">대진표</div><div class="empty">운영진이 대진표 탭 링크를 넣으면 여기에 시트 그림 그대로 나옵니다</div>`) : "";
   const groupHTML = groups.length ? `<div class="h3">조별리그<em>${groups.length}개 조 · 매치 승수 → 세트 득실 순 · 누르면 그 조 경기</em></div>
     <div class="grps">${groups.map((g, k) => `<div class="card grp" data-g="${k}"><h3>${g.name}<em>${g.ms.length}매치</em></h3><table class="mini"><tr><th>#</th><th>선수</th><th class="r">매치</th><th class="r">세트</th><th class="r">득실</th></tr>
       ${g.rows.map((r, q) => `<tr><td class="num">${q + 1}</td><td><b>${esc(P[r.i].id)}</b> ${raceB(P[r.i].race)}</td><td class="r num">${r.mw}-${r.ml}</td><td class="r num">${r.sw}-${r.sl}</td><td class="r num" style="color:${r.sw - r.sl > 0 ? "var(--up)" : r.sw - r.sl < 0 ? "var(--down)" : "var(--ink3)"}">${r.sw - r.sl > 0 ? "+" : ""}${r.sw - r.sl}</td></tr>`).join("")}</table></div>`).join("")}</div>` : "";
@@ -538,7 +543,7 @@ function viewLive(n) {
       <div class="season">${esc(L.name)}</div>
       <div class="meta"><span>세트 <b>${js.length}</b></span><span>선수 <b>${st.size}</b></span>${d0 != null ? `<span>기간 <b>${fmtD(d0).slice(2)} ~ ${fmtD(d1).slice(5)}</b></span>` : ""}${B?.champ != null ? `<span>우승 <b style="color:var(--brass1)">${esc(P[B.champ].id)}</b></span>` : ""}</div>
       <div class="wm">LIVE</div></div>
-    ${js.length ? `${fm === "league" ? "" : tourHTML}${groupHTML}
+    ${sheetHTML}${js.length ? `${fm === "league" || fm === "sheet" ? "" : tourHTML}${groupHTML}
     <div class="h3">${fm === "league" ? "순위" : "개인 성적"}<em>이 리그 세트 기준 · 승수 순</em></div>
     <div class="panel scroll"><table class="tbl" id="lvr"><thead><tr><th class="r">#</th><th></th><th>선수</th><th class="r">전적</th><th class="r">승률</th><th class="r">ELO</th></tr></thead><tbody>
       ${rank.map((o, k) => { const p = P[o.i]; return `<tr data-k="${esc(p.k)}" ${k >= 30 ? "hidden" : ""}><td class="rk r num ${k < 3 ? "t3" : ""}" style="font-size:22px">${k + 1}</td><td class="stripe" style="--tc:${tc(p.tier)}"></td>
@@ -971,7 +976,7 @@ async function adminSources(el, live) {
     if (!st) return `<span class="pill wait">다음 갱신 때 반영 (매일 아침)</span>`;
     return st.ok ? `<span class="pill ok">반영됨 · ${st.games}경기</span>` : `<span class="pill no">문제: ${esc(st.msg || "확인 필요")}</span>`; };
   const all = r.sources || [], list = all.filter(x => (x.stage === "live") === !!live);
-  el.innerHTML = `${live ? `<div class="notice"><b>!</b><div>지금 <b>진행 중인 리그</b>의 시트를 넣는 곳입니다. 넣으면 사이트 <b>리그</b> 화면에 KPL처럼 따로 나오고, 경기는 ELO에도 바로 반영됩니다. 리그마다 <b>방식</b>(풀리그 / 조별리그→토너먼트 / 토너먼트)을 고르면 그 방식에 맞는 표·대진표로 보여 줍니다. 리그가 끝나면 <b>완료</b>를 누르세요 — 리그 화면에서 빠지고 ELO 시트 목록으로 옮겨집니다.</div></div>` : ""}
+  el.innerHTML = `${live ? `<div class="notice"><b>!</b><div>지금 <b>진행 중인 리그</b>의 시트를 넣는 곳입니다. 넣으면 사이트 <b>리그</b> 화면에 KPL처럼 따로 나오고, 경기는 ELO에도 바로 반영됩니다. 리그마다 <b>방식</b>(풀리그 / 조별리그→토너먼트 / 토너먼트 / 시트 대진표 그대로)을 고르면 그 방식에 맞는 표·대진표로 보여 줍니다. 더블 엘리미네이션처럼 시트에 대진표가 이미 그려져 있으면 <b>시트 대진표 그대로</b>를 고르고 그 탭 주소를 넣으세요. 리그가 끝나면 <b>완료</b>를 누르세요 — 리그 화면에서 빠지고 ELO 시트 목록으로 옮겨집니다.</div></div>` : ""}
     <div class="card hl"><h3>${live ? "진행 중 리그 시트 추가" : "ELO 시트 추가"}<em>시트 링크를 붙이면 바로 구조를 분석합니다</em></h3>
       <div class="form-grid"><div class="fld wide"><label for="s_url">구글 시트 링크</label><input id="s_url" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"></div></div>
       <div class="btns"><button class="btn pri" id="s_an">시트 분석</button><span class="msg" id="s_msg">시트 공유가 「링크가 있는 모든 사용자 — 뷰어」여야 읽을 수 있습니다.</span></div>
@@ -979,18 +984,19 @@ async function adminSources(el, live) {
     <div class="h3">${live ? "진행 중 리그" : "등록된 ELO 시트"}<em>${list.length}개 · 매일 아침 자동 수집</em></div>
     <div class="panel srcs">${list.map(s => `<div class="src" data-id="${esc(s.id)}"><div><b>${esc(s.name)}</b>
         <div class="meta"><span>리그 <b style="font:inherit;color:var(--ink)">${esc(s.league)}</b> · 가중치 ×${s.weight}</span><span class="selectable">${esc(s.url || s.sheet)}</span>${pill(s)}</div></div>
-        ${live ? `<div class="lfmt"><select class="sel" data-k="format" aria-label="방식">${[["league", "풀리그 (순위표)"], ["group", "조별리그 → 토너먼트"], ["tour", "토너먼트"]].map(([v, l]) => `<option value="${v}" ${(s.format || "league") === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+        ${live ? `<div class="lfmt"><select class="sel" data-k="format" aria-label="방식">${[["league", "풀리그 (순위표)"], ["group", "조별리그 → 토너먼트"], ["tour", "토너먼트"], ["sheet", "시트 대진표 그대로 (더블 엘리미네이션 등)"]].map(([v, l]) => `<option value="${v}" ${(s.format || "league") === v ? "selected" : ""}>${l}</option>`).join("")}</select>
           <label class="tsw" ${(s.format || "league") === "group" ? "" : "hidden"}>토너먼트 시작일 <input type="date" data-k="tourStart" value="${esc(s.tourStart || "")}"></label>
-          <label class="tsz" ${(s.format || "league") === "league" ? "hidden" : ""}>본선 <select class="sel" data-k="tourSize"><option value="0">자동</option>${[64, 32, 16, 8, 4].map(n => `<option value="${n}" ${+s.tourSize === n ? "selected" : ""}>${n}강</option>`).join("")}</select></label>
+          <label class="tsz" ${["group", "tour"].includes(s.format) ? "" : "hidden"}>본선 <select class="sel" data-k="tourSize"><option value="0">자동</option>${[64, 32, 16, 8, 4].map(n => `<option value="${n}" ${+s.tourSize === n ? "selected" : ""}>${n}강</option>`).join("")}</select></label>
+          <label class="tbu" ${s.format === "sheet" ? "" : "hidden"}>대진표 탭 링크 <input data-k="boardUrl" value="${esc(s.boardUrl || "")}" placeholder="시트에서 대진표 탭을 연 주소 (#gid=… 포함)"></label>
           <button class="btn sm" data-act="fmt">방식 저장</button></div>` : ""}
         <div class="btns" style="margin:0">${live ? `<button class="btn sm pri" data-act="done">완료</button>` : ""}<button class="btn sm" data-act="tog">${s.enabled ? "끄기" : "켜기"}</button><button class="btn sm del" data-act="del">삭제</button></div></div>`).join("") || `<div class="empty">아직 없습니다. 위에서 시트 링크를 넣어 주세요.</div>`}</div>`;
   el.querySelector(".srcs").onchange = e => { const f = e.target.closest('[data-k="format"]'); if (!f) return; const box = f.closest("[data-id]");
-    box.querySelector(".tsw").hidden = f.value !== "group"; box.querySelector(".tsz").hidden = f.value === "league"; };
+    box.querySelector(".tsw").hidden = f.value !== "group"; box.querySelector(".tsz").hidden = !["group", "tour"].includes(f.value); box.querySelector(".tbu").hidden = f.value !== "sheet"; };
   el.querySelector(".srcs").onclick = async e => {
     const b = e.target.closest("[data-act]"); if (!b) return; const id = b.closest("[data-id]").dataset.id; const s = all.find(x => x.id === id);
     if (b.dataset.act === "del") { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 삭제"; return; } await api("/sources/del", { id }); }
     else if (b.dataset.act === "fmt") { const box = b.closest("[data-id]"), v = k => box.querySelector(`[data-k="${k}"]`).value;
-      await api("/sources/save", { source: { ...s, format: v("format"), tourStart: v("tourStart"), tourSize: +v("tourSize") } }); }
+      await api("/sources/save", { source: { ...s, format: v("format"), tourStart: v("tourStart"), tourSize: +v("tourSize"), boardUrl: v("boardUrl").trim() } }); }
     else if (b.dataset.act === "done") { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "리그 끝남 — 확정"; return; } await api("/sources/save", { source: { ...s, stage: "" } }); }
     else await api("/sources/save", { source: { ...s, enabled: !s.enabled } });
     adminSources(el, live);
