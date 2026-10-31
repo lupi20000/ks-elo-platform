@@ -634,3 +634,19 @@ textarea.out{width:100%;min-height:240px;background:var(--field);border:1px soli
 .ticker .ntag{font:800 11px var(--body);padding:2px 7px;color:#fff;letter-spacing:.02em}
 .ticker .ntag.up{background:var(--up)}
 .ticker .ntag.ups{background:var(--live)}
+
+/* 기록실 */
+.rec{list-style:none;margin:0;padding:0}
+.rec li{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--rule)}
+.rec li:first-child{border-top:0}
+.rec .rn{font:800 15px var(--disp);color:var(--ink3);text-align:center}
+.rec .rw{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.rec .rw a{color:var(--ink);font-weight:700}
+.rec .rw i{display:block;font:500 11px var(--body);font-style:normal;color:var(--ink3);margin-top:2px}
+.rec .rv{font:800 19px var(--disp);color:var(--ink);white-space:nowrap}
+.rec li.top .rn,.rec li.top .rv{color:var(--brass2)}
+.recs .card{min-width:0}
+/* 티어별 ELO 분포 */
+.spread .st{font:800 16px var(--disp);letter-spacing:.06em;fill:var(--tc);text-transform:uppercase}
+.spread .sx{font:500 14px var(--data);fill:var(--ink3)}
+.spread .sm{font:800 14px var(--disp);fill:var(--ink)}

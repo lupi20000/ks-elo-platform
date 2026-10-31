@@ -2,8 +2,7 @@
 (() => {
 "use strict";
 const API = "https://ks-elo-api.afterworkting.workers.dev";
-// 래더 계정 추가/빼기는 기존 래더 중계소(다른 클라우드플레어 계정)에 바로 보낸다 — 래더 관리자 아이디로 로그인
-// 래더 아이디 등록요청 = 래더 사이트와 같은 구글폼 (매일 밤 래더 갱신기가 반영)
+// 래더 등록요청·래더 계정 관리도 이 서버로 (매일 아침 갱신 때 반영)
 const PACK_KEY = "kS-ELO::clan-rating";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -546,7 +545,7 @@ function viewKPLTeam(name) {
 
 /* ---------- 분석 ---------- */
 function viewStats(tab = "league") {
-  const tabs = { league: "리그", tier: "티어", race: "종족", map: "맵" };
+  const tabs = { league: "리그", tier: "티어", race: "종족", map: "맵", rec: "기록실" };
   app.innerHTML = `<div class="h"><h2><small>${G.length.toLocaleString()}세트 · ${fmtD(G[0][0])} ~ ${fmtD(G[G.length - 1][0])}</small><span class="gold">Analytics</span></h2></div>
     <div class="seg">${Object.entries(tabs).map(([k, v]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${v}</button>`).join("")}</div><div id="sv"></div>`;
   $(".seg").onclick = e => { const t = e.target.dataset.tab; if (t) location.hash = `#/stats/${t}`; };
@@ -575,8 +574,10 @@ function viewStats(tab = "league") {
         <tr><th></th>${T.map(t => `<th style="color:${tc(t)}">${t.slice(0, 3)}</th>`).join("")}</tr>
         ${T.map((t, a) => `<tr><th style="color:${tc(t)};text-align:right">${t.slice(0, 3)}</th>${T.map((_, b) => a === b ? `<td style="background:rgba(0,0,0,.25)"></td>` : cell(M[a][b])).join("")}</tr>`).join("")}
       </table></div><p class="legend">시트에 기록된 '경기 당시' 티어 기준. 5세트 미만 칸은 생략.</p></div>
-      <div class="card"><h3>티어별 인원<em>정식 순위 선수 ${cnt.reduce((a, c) => a + c.n, 0)}명</em></h3>${tierBell(cnt)}</div></div>`;
+      <div class="card"><h3>티어별 인원<em>정식 순위 선수 ${cnt.reduce((a, c) => a + c.n, 0)}명</em></h3>${tierBell(cnt)}</div></div>
+      <div class="card" style="margin-top:14px"><h3>티어별 ELO 분포<em>점 = 선수 · 상자 = 가운데 절반 · 선 = 중앙값</em></h3>${tierSpread()}</div>`;
   }
+  if (tab === "rec") sv.innerHTML = records();
   if (tab === "race" || tab === "map") {
     const pairs = [["P", "T"], ["P", "Z"], ["T", "Z"]];
     const mk = () => ({ PT: { w: 0, n: 0 }, PZ: { w: 0, n: 0 }, TZ: { w: 0, n: 0 }, mirror: 0, n: 0 });
@@ -604,6 +605,65 @@ function viewStats(tab = "league") {
         </tbody></table></div><p class="legend">20세트 이상 맵 · 수치는 앞 종족 승률 · 55% 이상/45% 이하는 유리 종족 색</p>`;
     }
   }
+}
+
+function tierSpread() {
+  const rows = T.map(t => ({ t, v: ranked.filter(p => p.tier === t).map(p => p.r).sort((a, b) => a - b) })).filter(x => x.v.length);
+  if (!rows.length) return `<div class="empty">자료가 없습니다</div>`;
+  const all = rows.flatMap(x => x.v), lo = Math.floor(Math.min(...all) / 50) * 50, hi = Math.ceil(Math.max(...all) / 50) * 50;
+  const W = 640, pl = 84, pr = 16, rh = 44, pt = 14, H = pt + rows.length * rh + 30, X = v => pl + (v - lo) / (hi - lo || 1) * (W - pl - pr);
+  const q = (v, f) => { const k = (v.length - 1) * f, a = Math.floor(k); return v[a] + (v[Math.ceil(k)] - v[a]) * (k - a); };
+  const ticks = []; for (let v = lo; v <= hi; v += (hi - lo > 600 ? 200 : 100)) ticks.push(v);
+  return `<svg class="chart spread" viewBox="0 0 ${W} ${H}" style="aspect-ratio:${W}/${H}">
+    ${ticks.map(v => `<line x1="${X(v)}" x2="${X(v)}" y1="${pt}" y2="${H - 22}" style="stroke:var(--rule)"/><text x="${X(v)}" y="${H - 4}" text-anchor="middle" class="sx">${v}</text>`).join("")}
+    ${rows.map((x, k) => { const y = pt + k * rh + rh / 2, q1 = q(x.v, .25), md = q(x.v, .5), q3 = q(x.v, .75);
+      return `<g style="--tc:${tc(x.t)}"><text x="${pl - 10}" y="${y + 6}" text-anchor="end" class="st">${x.t}</text>
+        <line x1="${X(x.v[0])}" x2="${X(x.v.at(-1))}" y1="${y}" y2="${y}" style="stroke:var(--tc);stroke-width:1.5;opacity:.6"/>
+        <rect x="${X(q1)}" y="${y - 10}" width="${Math.max(2, X(q3) - X(q1))}" height="20" rx="4" style="fill:var(--tc);fill-opacity:.22;stroke:var(--tc);stroke-width:1.5"><title>${x.t} ${x.v.length}명 · 가운데 절반 ${r0(q1)}~${r0(q3)} · 중앙값 ${r0(md)} · 최저 ${r0(x.v[0])} · 최고 ${r0(x.v.at(-1))}</title></rect>
+        ${x.v.map((v, n) => `<circle cx="${X(v)}" cy="${y + ((n * 7) % 13) - 6}" r="2.2" style="fill:var(--tc);opacity:.75"/>`).join("")}
+        <line x1="${X(md)}" x2="${X(md)}" y1="${y - 12}" y2="${y + 12}" style="stroke:var(--ink);stroke-width:2.5"/>
+        <text x="${X(md)}" y="${y - 15}" text-anchor="middle" class="sm">${r0(md)}</text></g>`; }).join("")}</svg>`;
+}
+
+/* ---------- 기록실 ---------- */
+function records() {
+  const nm = i => `<a href="${pLink(i)}">${esc(P[i].id)}</a> ${raceB(P[i].race)}`;
+  const box = (title, sub, list) => `<div class="card"><h3>${title}<em>${sub}</em></h3>${list.length ? `<ol class="rec">${list.map((x, n) =>
+    `<li class="${n ? "" : "top"}"><span class="rn num">${n + 1}</span><span class="rw">${x.who}<i>${x.sub || ""}</i></span><span class="rv num">${x.v}</span></li>`).join("")}</ol>` : `<div class="empty">자료가 없습니다</div>`}</div>`;
+  const ym = m => (D.months[m] || "").replace("-", ".");
+  // 역대 최고 ELO (월말 기준, 선수마다 가장 높았던 때)
+  const peak = P.map(p => { let b = null; p.h.forEach(h => { if (!b || h[1] > b[1]) b = h; }); return b && { i: p.i, r: b[1], m: b[0] }; })
+    .filter(Boolean).sort((a, b) => b.r - a.r).slice(0, 5).map(x => ({ who: nm(x.i), sub: `${ym(x.m)} 월말`, v: r0(x.r) }));
+  // 최장 연승 · 최다 상대
+  const cur = {}, best = {}, opp = {};
+  G.forEach(g => { const w = g[3], l = g[4];
+    const c = cur[w] && cur[w].end === null ? cur[w] : (cur[w] = { n: 0, d0: g[0], end: null }); c.n++; c.d1 = g[0];
+    if (!best[w] || c.n > best[w].n) best[w] = { n: c.n, d0: c.d0, d1: c.d1 };
+    if (cur[l]) cur[l].end = g[0];
+    (opp[w] = opp[w] || new Set()).add(l); (opp[l] = opp[l] || new Set()).add(w); });
+  const strk = Object.entries(best).map(([i, b]) => ({ i: +i, ...b })).sort((a, b) => b.n - a.n || a.d1 - b.d1).slice(0, 5)
+    .map(x => ({ who: nm(x.i), sub: `${fmtD(x.d0)} ~ ${fmtD(x.d1).slice(5)}`, v: `${x.n}연승` }));
+  const many = (f, n = 5) => P.filter(p => p.w + p.l > 0).sort((a, b) => f(b) - f(a)).slice(0, n);
+  const wins = many(p => p.w).map(p => ({ who: nm(p.i), sub: `${p.w}승 ${p.l}패 · ${pctS(p.w, p.w + p.l)}`, v: `${p.w}승` }));
+  const games = many(p => p.w + p.l).map(p => ({ who: nm(p.i), sub: `${p.first.slice(0, 7).replace("-", ".")}부터`, v: `${(p.w + p.l).toLocaleString()}` }));
+  const wr = P.filter(p => p.w + p.l >= 100).sort((a, b) => b.w / (b.w + b.l) - a.w / (a.w + a.l)).slice(0, 5)
+    .map(p => ({ who: nm(p.i), sub: `${p.w}승 ${p.l}패`, v: pctS(p.w, p.w + p.l) }));
+  const foes = Object.entries(opp).map(([i, s]) => ({ i: +i, n: s.size })).sort((a, b) => b.n - a.n).slice(0, 5)
+    .map(x => ({ who: nm(x.i), sub: `서로 다른 상대`, v: `${x.n}명` }));
+  // 역대 최대 이변 (경기 직전 달 말 점수 기준)
+  const ups = [];
+  G.forEach(g => { const m = monthOf(g[0]) - 1; if (m < 0) return; const a = ratingAt(g[3], m), b = ratingAt(g[4], m); if (a != null && b != null && b - a >= 150) ups.push({ g, a, b }); });
+  const upset = ups.sort((x, y) => (y.b - y.a) - (x.b - x.a)).slice(0, 5).map(x => ({
+    who: `${nm(x.g[3])} <span style="color:var(--ink3)">승 vs</span> ${nm(x.g[4])}`, sub: `${fmtD(x.g[0])} · ${esc(D.leagues[x.g[1]].name)} · ${r0(x.a)} vs ${r0(x.b)}`, v: `+${r0(x.b - x.a)}` }));
+  return `<div class="grid c2 recs" style="margin-top:0">
+    ${box("역대 최고 ELO", "선수마다 가장 높았던 달", peak)}
+    ${box("최장 연승", "모든 리그 합산", strk)}
+    ${box("최대 이변", "경기 당시 점수 차이", upset)}
+    ${box("최다승", "모든 리그 합산", wins)}
+    ${box("최다 경기", "세트 수", games)}
+    ${box("최고 승률", "100세트 이상", wr)}
+    ${box("가장 많은 상대", "붙어 본 선수 수", foes)}
+  </div><p class="legend">기록된 모든 세트 기준 · 점수는 그 달 말 ELO</p>`;
 }
 
 function tierBell(cnt) {
