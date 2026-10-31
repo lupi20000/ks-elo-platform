@@ -653,3 +653,6 @@ textarea.out{width:100%;min-height:240px;background:var(--field);border:1px soli
 .cafeun td:last-child{white-space:normal;word-break:break-all}
 .cafeun a{color:var(--ink)}
 .cafeun td:first-child{color:var(--ink3)}
+.mu .row.clk{cursor:pointer;border-radius:4px}.mu .row.clk:hover{background:rgba(226,162,74,.08)}
+.stats .fk{cursor:pointer}.stats .fk:hover{background:rgba(226,162,74,.06)}
+#glog{scroll-margin-top:80px}#glog h3 em .btn{margin-left:8px}

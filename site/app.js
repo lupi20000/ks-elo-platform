@@ -323,7 +323,7 @@ function viewPlayer(k) {
     </div>
   </section>
   <div class="stats" style="margin-top:10px">
-    <div><b class="num">${p.w}-${p.l}</b><span>통산 전적</span></div>
+    <div class="fk" data-f="all"><b class="num">${p.w}-${p.l}</b><span>통산 전적 · 전체 경기 ›</span></div>
     <div><b class="num">${pctS(p.w, n)}</b><span>승률</span></div>
     <div><b class="num">${peak ?? "—"}</b><span>최고 레이팅(월말)</span></div>
     <div><b class="num">${dl(delta(p))}</b><span>지난달 대비</span></div>
@@ -334,24 +334,19 @@ function viewPlayer(k) {
     <div><b class="num">${kr.mvp}</b><span>MVP</span></div><div><b class="num">#${kr.rank}</b><span>KPL 개인순위</span></div></div></div>` : ""}
   <div class="grid c21">
     <div class="card"><h3>Rating Trend<em>월말 기준 · 점선 = 등급조정일</em></h3>${chart([p.h])}</div>
-    <div class="card"><h3>vs Race</h3><div class="mu">${muRows(vsRace, r => `vs ${r}`, r => `var(--${r})`) || `<div class="empty">—</div>`}</div>
-      <h3 style="margin-top:18px">By Year</h3><div class="mu">${muRows(byYear, y => y)}</div></div>
+    <div class="card"><h3>vs Race<em>누르면 해당 경기</em></h3><div class="mu" data-fl="race">${muRows(vsRace, r => `vs ${r}`, r => `var(--${r})`) || `<div class="empty">—</div>`}</div>
+      <h3 style="margin-top:18px">By Year</h3><div class="mu" data-fl="year">${muRows(byYear, y => y)}</div></div>
   </div>
   <div class="grid c3">
-    <div class="card"><h3>리그별</h3><table class="mini"><tr><th>리그</th><th class="r">전적</th><th class="r">승률</th></tr>
-      ${byLg.map(o => `<tr><td>${esc(D.leagues[o.k].name)}</td><td class="r num">${o.w}-${o.l}</td><td class="r num">${pctS(o.w, o.n)}</td></tr>`).join("")}</table></div>
-    <div class="card"><h3>맵별<em>상위 10</em></h3><table class="mini"><tr><th>맵</th><th class="r">전적</th><th class="r">승률</th></tr>
-      ${byMap.map(o => `<tr><td>${esc(D.maps[o.k])}</td><td class="r num">${o.w}-${o.l}</td><td class="r num">${pctS(o.w, o.n)}</td></tr>`).join("") || `<tr><td colspan=3 class="empty">—</td></tr>`}</table></div>
+    <div class="card"><h3>리그별<em>누르면 해당 경기</em></h3><table class="mini"><tr><th>리그</th><th class="r">전적</th><th class="r">승률</th></tr>
+      ${byLg.map(o => `<tr class="clk" data-f="lg:${o.k}"><td>${esc(D.leagues[o.k].name)}</td><td class="r num">${o.w}-${o.l}</td><td class="r num">${pctS(o.w, o.n)}</td></tr>`).join("")}</table></div>
+    <div class="card"><h3>맵별<em>상위 10 · 누르면 해당 경기</em></h3><table class="mini"><tr><th>맵</th><th class="r">전적</th><th class="r">승률</th></tr>
+      ${byMap.map(o => `<tr class="clk" data-f="map:${o.k}"><td>${esc(D.maps[o.k])}</td><td class="r num">${o.w}-${o.l}</td><td class="r num">${pctS(o.w, o.n)}</td></tr>`).join("") || `<tr><td colspan=3 class="empty">—</td></tr>`}</table></div>
     <div class="card"><h3>자주 만난 상대<em>누르면 맞대결</em></h3><table class="mini"><tr><th>상대</th><th class="r">전적</th><th class="r">ELO</th></tr>
       ${byOpp.map(o => `<tr class="clk" data-vs="${esc(P[o.k].k)}"><td>${esc(P[o.k].id)} ${raceB(P[o.k].race)}</td><td class="r num">${o.w}-${o.l}</td><td class="r num">${r0(P[o.k].r)}</td></tr>`).join("")}</table></div>
   </div>
   <div class="grid ${lad ? "c21" : ""}">
-    <div class="card"><h3>최근 경기<em>${recent.length}경기</em></h3><div class="scroll"><table class="mini">
-      <tr><th></th><th>날짜</th><th>리그</th><th>상대</th><th>맵</th></tr>
-      ${recent.map(j => { const g = G[j], win = g[3] === i, o = win ? g[4] : g[3];
-        return `<tr class="clk" data-vs="${esc(P[o].k)}"><td><span class="res ${win ? "W" : "L"}">${win ? "W" : "L"}</span></td><td class="num">${fmtD(g[0])}</td>
-        <td>${esc(D.leagues[g[1]].name)}</td><td>${esc(P[o].id)} ${raceB(RN[win ? g[6] : g[5]])}</td><td style="color:var(--ink3)">${esc(mapN(g))}</td></tr>`; }).join("")}
-    </table></div></div>
+    <div class="card" id="glog"></div>
     ${lad ? `<div class="card"><h3>Ladder<em>cwal.gg</em></h3>
       <div class="stats" style="grid-template-columns:1fr 1fr">
         <div><b class="num">${lad.rating || "—"}</b><span>래더 점수${lad.est ? " (추정)" : ""}</span></div>
@@ -361,7 +356,33 @@ function viewPlayer(k) {
       <div class="mu" style="margin-top:12px">${muRows(Object.entries(lad.mu || {}).map(([k, v]) => ({ k, w: v[0], l: v[1], n: v[0] + v[1] })), x => x)}</div></div>` : ""}
   </div>
   <p style="color:var(--ink3);font-size:12px;margin-top:14px">기록 기간 ${p.first ? p.first.replaceAll("-", ".") : "—"} ~ ${p.last ? p.last.replaceAll("-", ".") : "—"} · 감쇠 유효경기 ${p.eff.toFixed(1)}</p>`;
-  app.onclick = e => { const v = e.target.closest("[data-vs]")?.dataset.vs; if (v) location.hash = `#/vs/${encodeURIComponent(p.k)}/${encodeURIComponent(v)}`; };
+  const rows = { race: vsRace, year: byYear };
+  app.querySelectorAll(".mu[data-fl]").forEach(m => m.querySelectorAll(".row").forEach((r, n) => { r.classList.add("clk"); r.dataset.f = m.dataset.fl + ":" + rows[m.dataset.fl][n].k; }));
+  // 경기 목록: 기본은 최근 15경기, 위 항목을 누르면 그 조건의 경기 전부
+  const FL = {
+    all: () => [() => true, "전체 경기"],
+    race: v => [(g, win) => RN[win ? g[6] : g[5]] === v, `vs ${v}`],
+    year: v => [g => day2date(g[0]).getFullYear() === +v, `${v}년`],
+    lg: v => [g => g[1] === +v, D.leagues[+v]?.name || ""],
+    map: v => [g => g[2] === +v, D.maps[+v] || ""],
+  };
+  const drawLog = f => {
+    let list = recent, title = `최근 경기<em>${recent.length}경기</em>`;
+    if (f) { const [t, v] = f.split(":"), [ok, nm] = FL[t](v); list = idxs.filter(j => ok(G[j], G[j][3] === i)).reverse();
+      const w = list.filter(j => G[j][3] === i).length;
+      title = `${esc(nm)}<em>${list.length}경기 · ${w}승 ${list.length - w}패 · ${pctS(w, list.length)} <button class="btn sm" data-f="">✕ 최근 경기로</button></em>`; }
+    $("#glog").innerHTML = `<h3>${title}</h3><div class="scroll" style="${f ? "max-height:560px;overflow:auto" : ""}"><table class="mini">
+      <tr><th></th><th>날짜</th><th>리그</th><th>상대</th><th>맵</th></tr>
+      ${list.map(j => { const g = G[j], win = g[3] === i, o = win ? g[4] : g[3];
+        return `<tr class="clk" data-vs="${esc(P[o].k)}"><td><span class="res ${win ? "W" : "L"}">${win ? "W" : "L"}</span></td><td class="num">${fmtD(g[0])}</td>
+        <td>${esc(D.leagues[g[1]].name)}</td><td>${esc(P[o].id)} ${raceB(RN[win ? g[6] : g[5]])}</td><td style="color:var(--ink3)">${esc(mapN(g))}</td></tr>`; }).join("") || `<tr><td colspan=5 class="empty">경기가 없습니다</td></tr>`}
+    </table></div>`;
+  };
+  drawLog("");
+  app.onclick = e => {
+    const f = e.target.closest("[data-f]");
+    if (f) { drawLog(f.dataset.f); if (f.dataset.f) $("#glog").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+    const v = e.target.closest("[data-vs]")?.dataset.vs; if (v) location.hash = `#/vs/${encodeURIComponent(p.k)}/${encodeURIComponent(v)}`; };
   $("#pin").onclick = () => { const on = ME.get() === p.k; ME.set(on ? "" : p.k); $("#pin").textContent = on ? "☆ 내 아이디로 고정" : "★ 내 아이디로 고정됨"; };
 }
 
