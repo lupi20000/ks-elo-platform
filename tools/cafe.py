@@ -182,7 +182,8 @@ def parse_form(body):
     b = _player(t[labs[1].end():rm.start()])
     if not a or not b or clean_id(a).lower() == clean_id(b).lower():
         return []
-    res = re.sub(r"\s+", " ", t[rm.end():]).strip()[:120]
+    # 결과 칸: 이름·숫자·승패·구분자만 남긴다 (카페가 넣는 보이지 않는 빈칸 문자 등 제거)
+    res = re.sub(r"[^0-9A-Za-z가-힣:;/：_\-\[\]]+", " ", t[rm.end():]).strip()[:120]
     ca, cb = clean_id(a).lower(), clean_id(b).lower()
     low = res.lower()
     named = [x for x, c in ((a, ca), (b, cb)) if re.search(rf"(?<![A-Za-z0-9_]){re.escape(c)}(?![A-Za-z0-9_])", low)]
