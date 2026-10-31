@@ -8,8 +8,9 @@ mask = lambda s: re.sub(r"[0-9]+", "9", re.sub(r"[A-Za-z][A-Za-z0-9_.\-\[\]]*", 
 ok = bad = 0; shown = 0
 for aid, v in sorted(P.items(), key=lambda x: -int(x[0])):
     w = v.get("w") or ""
-    found = cafe.parse_text(v.get("t") or "", w)
-    for line in str(v.get("b") or "").splitlines():
+    found = cafe.parse_text(v.get("t") or "", w) or cafe.parse_form(v.get("b") or "")
+    if not found:
+      for line in str(v.get("b") or "").splitlines():
         found += cafe.parse_text(line, w)
     if found: ok += 1; continue
     bad += 1

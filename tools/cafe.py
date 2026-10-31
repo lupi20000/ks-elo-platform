@@ -142,6 +142,79 @@ def parse_text(text, writer):
     return []
 
 
+RACE_WORD = {"p": "P", "t": "T", "z": "Z", "프로토스": "P", "토스": "P", "프": "P", "테란": "T", "테": "T", "저그": "Z", "저": "Z"}
+
+
+def _player(v):
+    """양식 칸 값 'rox Z' / 'rox[kS], 저그' / 'rox(T)' → 'rox(Z)' (종족 모르면 'rox'), 못 찾으면 None"""
+    v = re.sub(r"[​-‏﻿☀-➿\U0001F000-\U0001FFFF]", " ", v or "")
+    rc = race_of(v)
+    pid = None
+    for tok in re.split(r"[\s,/|·]+", re.sub(r"\(\s*[PTZptz]\s*\)", " ", v)):
+        t = tok.strip(" :.-")
+        if not t:
+            continue
+        r = RACE_WORD.get(t.lower())
+        if r:
+            rc = rc or r
+            continue
+        c = clean_id(t)
+        if pid is None and is_id(c):
+            pid = c
+    if not pid:
+        return None
+    return f"{pid}({rc})" if rc else pid
+
+
+def parse_form(body):
+    """카페 결과입력 양식 본문:
+        A선수 ID (종족 포함…) : rox Z
+        ⚔️
+        B선수 ID (종족 포함…) : abc T
+        🔢 결과 (세트별 승리 순서 포함) : 2:1 rox 승  |  패승승  |  2승  |  rox 2/1
+    → [(승자, 패자, 맵, 세트수)]. 결과는 따로 이름이 없으면 A선수 기준으로 읽는다."""
+    t = re.sub(r"[​-‏﻿]", "", html.unescape(body or ""))
+    labs = list(re.finditer(r"[A-Za-z0-9가-힣]?\s*선수[^:：\n]*[:：]", t))
+    rm = re.search(r"결과[^:：\n]*[:：]", t)
+    if len(labs) < 2 or not rm or rm.start() < labs[1].end():
+        return []
+    a = _player(t[labs[0].end():labs[1].start()])
+    b = _player(t[labs[1].end():rm.start()])
+    if not a or not b or clean_id(a).lower() == clean_id(b).lower():
+        return []
+    res = re.sub(r"\s+", " ", t[rm.end():]).strip()[:120]
+    ca, cb = clean_id(a).lower(), clean_id(b).lower()
+    low = res.lower()
+    named = [x for x, c in ((a, ca), (b, cb)) if re.search(rf"(?<![A-Za-z0-9_]){re.escape(c)}(?![A-Za-z0-9_])", low)]
+    sc = re.search(r"(\d+)\s*[:;/：]\s*(\d+)", res)
+    compact = re.sub(r"[\s,./]", "", res)
+    out = lambda w, l, n: [(w, l, "", n)] if n > 0 else []
+    if sc:
+        x, y = int(sc.group(1)), int(sc.group(2))
+        if len(named) == 1:
+            w = named[0]
+            lose = re.search(rf"{re.escape(clean_id(w).lower())}\s*(님\s*)?패", low)
+            if lose:
+                w = b if w == a else a
+            l = b if w == a else a
+            return out(w, l, max(x, y)) + out(l, w, min(x, y))
+        if not named:                                   # 이름 없이 '2:1' → A선수:B선수
+            return out(a, b, x) + out(b, a, y)
+        return []
+    m = re.fullmatch(r"([승패]+)\d*", compact)           # '패승승승' = A선수의 세트별 결과
+    if m:
+        seq = m.group(1)
+        return out(a, b, seq.count("승")) + out(b, a, seq.count("패"))
+    m = re.fullmatch(r"(\d+)([승패])", compact)          # '2승' / '1패' = A선수 기준
+    if m:
+        n = int(m.group(1))
+        return out(a, b, n) if m.group(2) == "승" else out(b, a, n)
+    if len(named) == 1 and "승" in res:                  # 'rox 승'
+        w = named[0]
+        return out(w, b if w == a else a, 1)
+    return []
+
+
 def body_text(clubid, aid, cookie):
     d = get_json(BODY_API.format(clubid=clubid, aid=aid), cookie)
     art = (d.get("result") or {}).get("article") or {}
@@ -227,6 +300,9 @@ def main():
         if re.fullmatch(r"[\s\-=ㅡ_~*.]+.*[\-=ㅡ_~*.]+\s*", title) and not re.search(r"\bvs\b", title, re.I):
             continue                                   # '------ elo 마감 ------' 같은 구분선 글
         found = [(title, x) for x in parse_text(title, writer)]
+        if not found and str(aid) in posts:
+            body = str(posts[str(aid)].get("b") or "")
+            found = [(body, x) for x in parse_form(body)]
         if not found and str(aid) in posts:
             for line in str(posts[str(aid)].get("b") or "").splitlines():
                 found += [(line, x) for x in parse_text(line, writer)]
