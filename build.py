@@ -596,6 +596,8 @@ def main():
     have_ids = {str(x.get("id")) for x in srcs}
     srcs += [x for x in load_repo_sources() if str(x.get("id")) not in have_ids]
     admin = collect_admin_sources(srcs, srcstat)
+    # 진행 중 리그(운영진 '리그 시트 등록') — 사이트 리그 화면에 따로 보여 준다
+    live_srcs = [x for x in srcs if x.get("stage") == "live" and x.get("enabled", True)]
     cafe = load_cafe_games()
     backfill = load_cafe_games(os.path.join(HERE, "data", "elo_backfill.json"), "카페 과거 ELO 기록", "backfill", "카페(과거)")
     subs_path = os.environ.get("ELO_SUBMITS_FILE")
@@ -836,6 +838,8 @@ def main():
         "tiers": TIERS, "seeds": CFG["tier_seed"], "defaultSeed": CFG["default_seed"],
         "leagues": [{"name": s, "w": CFG["league_weight"].get(s, 1)} for s in leagues],
         "maps": maps, "srcs": srcs, "months": months,
+        "live": [{"name": x.get("name") or "", "league": x.get("league") or "", "src": sidx[x.get("name")]}
+                 for x in live_srcs if x.get("name") in sidx],
         "adjustments": CFG["adjustments"], "promo": CFG["promotion_defaults"],
         "players": players, "g": G,
     }

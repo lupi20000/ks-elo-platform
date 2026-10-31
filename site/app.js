@@ -388,15 +388,16 @@ function viewPlayer(k) {
 
 /* ---------- KPL ---------- */
 function viewKPL([sub, arg] = []) {
+  if (sub === "lg") return viewLive(+arg);
   if (!K) {
-    app.innerHTML = `<div class="kpl-head"><div class="season">KPL <em>S10</em></div><div class="meta">KPL 시즌 데이터를 준비하고 있습니다. 다음 자동 갱신 때 채워집니다.</div><div class="wm">KPL</div></div>`;
+    app.innerHTML = `${lgTabs("kpl")}<div class="kpl-head"><div class="season">KPL <em>S10</em></div><div class="meta">KPL 시즌 데이터를 준비하고 있습니다. 다음 자동 갱신 때 채워집니다.</div><div class="wm">KPL</div></div>`;
     return;
   }
   if (sub === "team") return viewKPLTeam(arg);
   const M = K.matches || [], played = M.filter(m => m.played), next = M.filter(m => !m.played)[0];
   const sets = played.flatMap(m => m.sets || []);
   const RK = { sort: "rank", dir: 1 };
-  app.innerHTML = `<div class="kpl-head"><div class="kicker" style="color:#ffb38a">kS CLAN PRO LEAGUE</div>
+  app.innerHTML = `${lgTabs("kpl")}<div class="kpl-head"><div class="kicker" style="color:#ffb38a">kS CLAN PRO LEAGUE</div>
       <div class="season">${esc(K.season.replace(/S(\d+)$/, ""))}<em>${esc((K.season.match(/S\d+$/) || [""])[0])}</em></div>
       <div class="meta"><span>경기 <b>${played.length}</b> / ${M.length}</span><span>세트 <b>${sets.length}</b></span><span>팀 <b>${(K.standings || []).length}</b></span>
       ${next ? `<span>다음 경기 <b>${esc(next.date.slice(5).replace("-", "."))} ${esc(next.time || "")}</b> ${esc(next.home)} vs ${esc(next.away)}</span>` : ""}</div>
@@ -446,6 +447,53 @@ function viewKPL([sub, arg] = []) {
   app.querySelector(".stand tbody").onclick = e => { const t = e.target.closest("tr[data-team]")?.dataset.team; if (t) location.hash = `#/kpl/team/${encodeURIComponent(t)}`; };
   app.querySelectorAll(".memb").forEach(b => b.onclick = () => { const m = b.nextElementSibling; m.hidden = !m.hidden; b.textContent = m.hidden ? b.textContent.replace("접기", "보기") : b.textContent.replace("보기", "접기"); });
   bindMatches();
+}
+// 리그 화면 위 탭: KPL + 운영진이 '리그 시트 등록'에 넣은 진행 중 리그들
+function lgTabs(on) {
+  const L = D.live || [];
+  if (!L.length) return "";
+  return `<div class="seg lgtabs"><a class="${on === "kpl" ? "on" : ""}" href="#/kpl">${esc(K?.season || "KPL")}</a>${L.map((l, n) => `<a class="${on === n ? "on" : ""}" href="#/kpl/lg/${n}">${esc(l.name)}</a>`).join("")}</div>`;
+}
+function viewLive(n) {
+  const L = (D.live || [])[n];
+  if (!L) { location.hash = "#/kpl"; return; }
+  const js = []; G.forEach((g, j) => { if (g[9] === L.src) js.push(j); });
+  const st = new Map(), add = (i, w) => { const o = st.get(i) || { i, w: 0, l: 0 }; o[w ? "w" : "l"]++; st.set(i, o); };
+  js.forEach(j => { add(G[j][3], 1); add(G[j][4], 0); });
+  const rank = [...st.values()].sort((a, b) => b.w - a.w || (b.w / (b.w + b.l)) - (a.w / (a.w + a.l)) || P[b.i].r - P[a.i].r);
+  const mu = { PT: { w: 0, n: 0 }, PZ: { w: 0, n: 0 }, TZ: { w: 0, n: 0 } }, mp = {};
+  js.forEach(j => { const g = G[j], a = RN[g[5]], b = RN[g[6]]; if (a && b && a !== b) { const [x, y] = [a, b].sort(); mu[x + y].n++; if (a === x) mu[x + y].w++; }
+    if (g[2] >= 0) mp[g[2]] = (mp[g[2]] || 0) + 1; });
+  const d0 = js.length ? G[js[0]][0] : null, d1 = js.length ? G[js.at(-1)][0] : null;
+  let lim = 40;
+  app.innerHTML = `${lgTabs(n)}<div class="kpl-head"><div class="kicker" style="color:#ffb38a">진행 중 리그 · ${esc(L.league)}</div>
+      <div class="season">${esc(L.name)}</div>
+      <div class="meta"><span>세트 <b>${js.length}</b></span><span>선수 <b>${st.size}</b></span>${d0 != null ? `<span>기간 <b>${fmtD(d0).slice(2)} ~ ${fmtD(d1).slice(5)}</b></span>` : ""}</div>
+      <div class="wm">LIVE</div></div>
+    ${js.length ? `<div class="h3">개인 순위<em>이 리그 세트 기준 · 승수 순</em></div>
+    <div class="panel scroll"><table class="tbl" id="lvr"><thead><tr><th class="r">#</th><th></th><th>선수</th><th class="r">전적</th><th class="r">승률</th><th class="r">ELO</th></tr></thead><tbody>
+      ${rank.map((o, k) => { const p = P[o.i]; return `<tr data-k="${esc(p.k)}" ${k >= 30 ? "hidden" : ""}><td class="rk r num ${k < 3 ? "t3" : ""}" style="font-size:22px">${k + 1}</td><td class="stripe" style="--tc:${tc(p.tier)}"></td>
+        <td class="nm">${esc(p.id)} ${raceB(p.race)}<span class="sub">${esc(p.tier || "")}</span></td><td class="r num" style="font-size:18px">${o.w}-${o.l}</td>
+        <td class="r"><span class="wr">${pctS(o.w, o.w + o.l)}</span></td><td class="r num" style="font-size:16px;color:var(--ink2)">${r0(p.r)}</td></tr>`; }).join("")}
+    </tbody></table></div>${rank.length > 30 ? `<button class="more" id="lvrm">전체 ${rank.length}명 보기</button>` : ""}
+    <div class="grid c2">
+      <div class="card"><h3>종족전<em>앞 종족 승률</em></h3><div class="mu">${muRows(Object.entries(mu).filter(([, v]) => v.n).map(([k, v]) => ({ k, w: v.w, l: v.n - v.w, n: v.n })), k => `<span style="color:var(--${k[0]})">${k[0]}</span>v<span style="color:var(--${k[1]})">${k[1]}</span>`) || `<div class="empty">—</div>`}</div></div>
+      <div class="card"><h3>맵<em>많이 쓴 순</em></h3><table class="mini">${Object.entries(mp).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, c]) => `<tr><td>${esc(D.maps[k])}</td><td class="r num">${c}세트</td></tr>`).join("") || `<tr><td class="empty">맵 기록 없음</td></tr>`}</table></div>
+    </div>
+    <div class="h3">경기 결과<em>최근 순 · 누르면 맞대결</em></div>
+    <div class="panel scroll"><table class="mini" id="lvg"></table></div><button class="more" id="lvm">더 보기</button>`
+    : `<div class="empty" style="margin-top:20px">아직 들어온 경기가 없습니다. 다음 아침 갱신 때 시트에서 가져옵니다.</div>`}`;
+  if (!js.length) return;
+  const drawG = () => {
+    $("#lvg").innerHTML = `<tr><th>날짜</th><th>승자</th><th></th><th>패자</th><th>맵</th></tr>` + js.slice().reverse().slice(0, lim).map(j => { const g = G[j];
+      return `<tr class="clk" data-a="${esc(P[g[3]].k)}" data-b="${esc(P[g[4]].k)}"><td class="num">${fmtD(g[0]).slice(5)}</td><td><b>${esc(P[g[3]].id)}</b> ${raceB(RN[g[5]])}</td><td style="color:var(--ink3)">승</td><td>${esc(P[g[4]].id)} ${raceB(RN[g[6]])}</td><td style="color:var(--ink3)">${esc(mapN(g))}</td></tr>`; }).join("");
+    $("#lvm").style.display = js.length > lim ? "" : "none";
+  };
+  drawG();
+  $("#lvm").onclick = () => { lim += 80; drawG(); };
+  if ($("#lvrm")) $("#lvrm").onclick = () => { app.querySelectorAll("#lvr tr[hidden]").forEach(t => t.hidden = false); $("#lvrm").remove(); };
+  $("#lvr tbody").onclick = e => { const k = e.target.closest("tr[data-k]")?.dataset.k; if (k) location.hash = `#/p/${encodeURIComponent(k)}`; };
+  $("#lvg").onclick = e => { const t = e.target.closest("tr[data-a]"); if (t) location.hash = `#/vs/${encodeURIComponent(t.dataset.a)}/${encodeURIComponent(t.dataset.b)}`; };
 }
 function matchRow(m) {
   const hw = m.played && m.hs > m.as, aw = m.played && m.as > m.hs;
@@ -818,14 +866,14 @@ async function api(path, body) {
 async function viewAdmin(tab) {
   if (!TOK.get() || !(await api("/me")).ok) return adminGate();
   tab = tab || "src";
-  const tabs = { src: "시트 등록", fix: "경기 수정", cafe: "카페 수집", promo: "등급조정", lad: "래더 계정", health: "데이터 상태" };
+  const tabs = { src: "ELO 시트 등록", league: "리그 시트 등록", games: "ELO 입력값", promo: "등급조정", lad: "래더 관리", health: "데이터" };
   app.innerHTML = `<div class="h"><h2><small>운영진 전용 · 이 화면의 내용은 공개 화면에 나오지 않습니다</small><span class="gold">운영진</span> <span class="kr">관리</span></h2>
     <div class="aside"><button class="btn sm" id="logout">로그아웃</button></div></div>
     ${D.meta.gaps.length ? `<div class="notice red"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}
     <div class="seg">${Object.entries(tabs).map(([k, v]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${v}</button>`).join("")}</div><div id="av"></div>`;
   $(".seg").onclick = e => { const t = e.target.dataset.tab; if (t) location.hash = `#/admin/${t}`; };
   $("#logout").onclick = async () => { await api("/logout", {}); TOK.clear(); location.hash = "#/"; };
-  ({ src: adminSources, fix: adminFix, cafe: adminCafe, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || adminSources)($("#av"));
+  ({ src: el => adminSources(el, false), league: el => adminSources(el, true), games: adminGames, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || (el => adminSources(el, false)))($("#av"));
 }
 function adminGate() {
   app.innerHTML = `<div class="gate"><div class="kicker">ADMIN</div><h2>운영진</h2><p>관리자 아이디와 비밀번호를 넣어 주세요.</p>
@@ -841,27 +889,31 @@ function adminGate() {
   $("#go").onclick = go; $("#pw").onkeydown = e => e.key === "Enter" && go();
 }
 const COLS = [["date", "날짜"], ["winner", "승자"], ["loser", "패자"], ["map", "맵"], ["league", "리그(열)"], ["wrace", "승자 종족"], ["lrace", "패자 종족"], ["year", "연"], ["month", "월"], ["day", "일"]];
-async function adminSources(el) {
+// live=false: ELO 데이터 시트 · live=true: 진행 중 리그 시트(사이트 '리그' 화면에 따로 나옴, 완료 → ELO 시트로 이동)
+async function adminSources(el, live) {
   el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
   const r = await api("/sources");
   if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
   const stat = r.stat || {};
   const pill = s => { const st = stat[s.id]; if (!s.enabled) return `<span class="pill">꺼짐</span>`;
-    if (!st) return `<span class="pill wait">다음 갱신 때 반영 (매일 새벽 5시)</span>`;
+    if (!st) return `<span class="pill wait">다음 갱신 때 반영 (매일 아침)</span>`;
     return st.ok ? `<span class="pill ok">반영됨 · ${st.games}경기</span>` : `<span class="pill no">문제: ${esc(st.msg || "확인 필요")}</span>`; };
-  el.innerHTML = `<div class="card hl"><h3>공식리그 시트 추가<em>시트 링크를 붙이면 바로 구조를 분석합니다</em></h3>
+  const all = r.sources || [], list = all.filter(x => (x.stage === "live") === !!live);
+  el.innerHTML = `${live ? `<div class="notice"><b>!</b><div>지금 <b>진행 중인 리그</b>의 시트를 넣는 곳입니다. 넣으면 사이트 <b>리그</b> 화면에 KPL처럼 따로 나오고, 경기는 ELO에도 바로 반영됩니다. 리그가 끝나면 <b>완료</b>를 누르세요 — 리그 화면에서 빠지고 ELO 시트 목록으로 옮겨집니다.</div></div>` : ""}
+    <div class="card hl"><h3>${live ? "진행 중 리그 시트 추가" : "ELO 시트 추가"}<em>시트 링크를 붙이면 바로 구조를 분석합니다</em></h3>
       <div class="form-grid"><div class="fld wide"><label for="s_url">구글 시트 링크</label><input id="s_url" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"></div></div>
       <div class="btns"><button class="btn pri" id="s_an">시트 분석</button><span class="msg" id="s_msg">시트 공유가 「링크가 있는 모든 사용자 — 뷰어」여야 읽을 수 있습니다.</span></div>
       <div id="s_res"></div></div>
-    <div class="h3">등록된 시트<em>${(r.sources || []).length}개 · 매일 새벽 자동 수집</em></div>
-    <div class="panel srcs">${(r.sources || []).map(s => `<div class="src" data-id="${esc(s.id)}"><div><b>${esc(s.name)}</b>
+    <div class="h3">${live ? "진행 중 리그" : "등록된 ELO 시트"}<em>${list.length}개 · 매일 아침 자동 수집</em></div>
+    <div class="panel srcs">${list.map(s => `<div class="src" data-id="${esc(s.id)}"><div><b>${esc(s.name)}</b>
         <div class="meta"><span>리그 <b style="font:inherit;color:var(--ink)">${esc(s.league)}</b> · 가중치 ×${s.weight}</span><span class="selectable">${esc(s.url || s.sheet)}</span>${pill(s)}</div></div>
-        <div class="btns" style="margin:0"><button class="btn sm" data-act="tog">${s.enabled ? "끄기" : "켜기"}</button><button class="btn sm del" data-act="del">삭제</button></div></div>`).join("") || `<div class="empty">아직 없습니다. 위에서 시트 링크를 넣어 주세요.</div>`}</div>`;
+        <div class="btns" style="margin:0">${live ? `<button class="btn sm pri" data-act="done">완료</button>` : ""}<button class="btn sm" data-act="tog">${s.enabled ? "끄기" : "켜기"}</button><button class="btn sm del" data-act="del">삭제</button></div></div>`).join("") || `<div class="empty">아직 없습니다. 위에서 시트 링크를 넣어 주세요.</div>`}</div>`;
   el.querySelector(".srcs").onclick = async e => {
-    const b = e.target.closest("[data-act]"); if (!b) return; const id = b.closest("[data-id]").dataset.id; const s = r.sources.find(x => x.id === id);
+    const b = e.target.closest("[data-act]"); if (!b) return; const id = b.closest("[data-id]").dataset.id; const s = all.find(x => x.id === id);
     if (b.dataset.act === "del") { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 삭제"; return; } await api("/sources/del", { id }); }
+    else if (b.dataset.act === "done") { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "리그 끝남 — 확정"; return; } await api("/sources/save", { source: { ...s, stage: "" } }); }
     else await api("/sources/save", { source: { ...s, enabled: !s.enabled } });
-    adminSources(el);
+    adminSources(el, live);
   };
   $("#s_an").onclick = async () => {
     const url = $("#s_url").value.trim(); if (!url) return;
@@ -872,10 +924,10 @@ async function adminSources(el) {
     const good = a.tabs.filter(t => t.ok);
     $("#s_msg").className = good.length ? "msg ok" : "msg no";
     $("#s_msg").textContent = good.length ? `분석 완료: 경기 기록으로 보이는 탭 ${good.length}개를 찾았습니다.` : "경기 기록 형식을 자동으로 못 찾았습니다. 아래에서 열을 직접 골라 주세요.";
-    sourceEditor($("#s_res"), a, url, () => adminSources(el));
+    sourceEditor($("#s_res"), a, url, () => adminSources(el, live), live ? "live" : "");
   };
 }
-function sourceEditor(box, a, url, done) {
+function sourceEditor(box, a, url, done, stage = "") {
   let cur = a.tabs[0];
   const draw = () => {
     const mp = cur.mapping || { headerRow: 1, fillDown: [], cols: {} };
@@ -908,7 +960,7 @@ function sourceEditor(box, a, url, done) {
       const mp2 = readMp();
       if (mp2.cols.winner == null || mp2.cols.loser == null) { $("#e_msg").className = "msg no"; $("#e_msg").textContent = "승자·패자 열은 꼭 골라야 합니다."; return; }
       const lg = $("#e_lg").value.trim(); if (!lg) { $("#e_msg").className = "msg no"; $("#e_msg").textContent = "리그 이름을 적어 주세요."; return; }
-      const s = await api("/sources/save", { source: { name: $("#e_name").value.trim(), league: lg, weight: +$("#e_w").value || 1, url, sheet: a.sheet, gid: cur.gid, mapping: mp2, enabled: true } });
+      const s = await api("/sources/save", { source: { name: $("#e_name").value.trim(), league: lg, weight: +$("#e_w").value || 1, url, sheet: a.sheet, gid: cur.gid, mapping: mp2, enabled: true, stage } });
       if (s.ok) done(); else { $("#e_msg").className = "msg no"; $("#e_msg").textContent = s.msg; }
     };
   };
@@ -916,34 +968,17 @@ function sourceEditor(box, a, url, done) {
 }
 const sampleTable = S => S && S.length ? `<div class="scroll" style="margin-top:12px"><table class="mini"><tr><th>날짜</th><th>승자</th><th>패자</th><th>맵</th><th>리그</th><th>종족</th></tr>
   ${S.map(g => `<tr><td class="num">${esc(g.date)}</td><td><b>${esc(g.winner)}</b></td><td>${esc(g.loser)}</td><td>${esc(g.map)}</td><td>${esc(g.league)}</td><td>${esc(g.wrace)} v ${esc(g.lrace)}</td></tr>`).join("")}</table></div>` : `<p class="msg" style="margin-top:10px">보여줄 경기가 없습니다.</p>`;
-async function adminCafe(el) {
-  el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
-  const r = await api("/sources");
-  if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
-  const c = r.cafe || {}, st = (r.stat || {}).cafe;
-  el.innerHTML = `<div class="card hl"><h3>네이버 카페 ELO 결과입력 게시판<em>매일 새벽 5시에 자동으로 모읍니다</em></h3>
-    <div class="form-grid"><div class="fld wide"><label for="c_url">게시판 주소</label><input id="c_url" value="${esc(c.url || "")}" placeholder="https://cafe.naver.com/f-e/cafes/30800617/menus/00"></div>
-      <div class="fld"><label for="c_club">카페 번호</label><input id="c_club" value="${esc(c.clubid || "30800617")}"></div>
-      <div class="fld"><label for="c_menu">게시판 번호</label><input id="c_menu" value="${esc(c.menuid || "")}" placeholder="주소에서 자동"></div></div>
-    <label class="keep" style="display:flex;gap:8px;margin:12px 0;font-size:12.5px;color:var(--ink2)"><input type="checkbox" id="c_on" ${c.enabled ? "checked" : ""}> 자동 수집 켜기</label>
-    <div class="btns"><button class="btn pri" id="c_save">저장</button><span class="msg" id="c_msg"></span></div></div>
-    <div class="h3">마지막 수집 결과</div>
-    <div class="card">${st ? `<p class="msg ${st.ok ? "ok" : "no"}">${esc(st.at || "")} · ${st.ok ? `${st.games}경기 인식` : esc(st.msg || "실패")}</p>
-      ${st.unparsed?.length ? `<p class="msg">형식을 못 읽은 글 ${Math.max(st.skipped || 0, st.unparsed.length)}개${(st.skipped || 0) > st.unparsed.length ? ` 중 최근 ${st.unparsed.length}개` : ""} (글쓴이에게 양식대로 다시 써 달라고 안내해 주세요 · 줄을 누르면 카페 글이 열립니다)</p><table class="mini cafeun"><tr><th>날짜</th><th>경기 (글쓴이 vs 상대)</th></tr>${st.unparsed.map(u => {
-        const t = String(u.title || "").trim(), w = String(u.writer || "").trim(), url = `https://cafe.naver.com/ca-fe/cafes/${encodeURIComponent(c.clubid || "30800617")}/articles/${encodeURIComponent(u.articleId)}`;
-        return `<tr><td class="num">${esc((u.date || "").slice(5).replace("-", "."))}</td><td><a href="${url}" target="_blank" rel="noopener">${/^vs\b/i.test(t) ? `<b>${esc(w || "?")}</b> ${esc(t)}` : `${esc(t)} <span style="color:var(--ink3)">· 글쓴이 ${esc(w || "?")}</span>`}</a></td></tr>`; }).join("")}</table>` : ""}` : `<p class="msg">아직 수집한 적이 없습니다.</p>`}</div>`;
-  $("#c_save").onclick = async () => {
-    const s = await api("/cafe", { url: $("#c_url").value.trim(), clubid: $("#c_club").value.trim(), menuid: $("#c_menu").value.trim(), enabled: $("#c_on").checked });
-    $("#c_msg").className = s.ok ? "msg ok" : "msg no"; $("#c_msg").textContent = s.ok ? `저장했습니다. 게시판 번호 ${s.cafe.menuid || "?"}` : s.msg;
-    if (s.ok) $("#c_menu").value = s.cafe.menuid || "";
-  };
-}
 async function adminPromo(el) {
   el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
   const pr = await api("/promo");
   if (!pr.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(pr.msg)}</div></div>`; return; }
   let OV = pr.promo?.overrides || {};
-  const S = Object.assign({}, D.promo, { name: "4-5차" }, pr.promo?.settings || {});
+  // 기본값: 직전 등급조정일부터 평가 · 차수는 직전 다음 번호 · 나머지는 지난번에 쓴 설정
+  const last = D.adjustments.at(-1) || {}, nextName = String(last.name || "").replace(/(\d+)(차)?$/, (m0, n, c) => (+n + 1) + (c || "")) || "다음 차";
+  const saved = pr.promo?.settings || {};
+  const S = Object.assign({ strict: true }, D.promo, saved);
+  if (!saved.window_start || (last.date && saved.window_start < last.date)) S.window_start = last.date || S.window_start;
+  if (!saved.name || saved.name === last.name) S.name = nextName;
   el.innerHTML = `<div class="notice"><b>!</b><div>승격·강등 기준선과 후보는 <b>운영진만</b> 봅니다. 공개 화면에는 나오지 않습니다. 설정과 수동 지정은 서버에 저장되어 운영진끼리 같이 봅니다.</div></div>
     <div class="card"><div class="form-grid c7">
       <div class="fld"><label for="f_name">차수</label><input id="f_name" value="${esc(S.name)}"></div>
@@ -954,6 +989,7 @@ async function adminPromo(el) {
       <div class="fld"><label for="f_quota" id="l_q">티어당 최대(%)</label><input id="f_quota" type="number" min="0" value="${S.quota_pct}"></div>
       <div class="fld" id="w_qn"><label for="f_qn">정원(명)</label><input id="f_qn" type="number" min="0" value="${S.quota_n}"></div>
     </div>
+    <label class="keep" style="display:flex;gap:8px;margin:12px 0 0;font-size:12.5px;color:var(--ink2)"><input type="checkbox" id="f_strict" ${S.strict !== false ? "checked" : ""}> 순위 역전 막기 — 티어 안에서 ELO가 더 높은 사람이 승격 안 되면 그 아래는 승격 안 됨 (강등도 같은 방식)</label>
     <div class="btns"><button class="btn pri" id="calc">다시 계산</button><button class="btn" id="reset">수동 지정 초기화</button>
       <span class="msg" id="p_msg">직전 조정: ${esc(D.adjustments.at(-1).name)} (${esc(D.adjustments.at(-1).date)})</span></div></div>
     <div id="res"></div>
@@ -964,7 +1000,7 @@ async function adminPromo(el) {
   $("#f_method").value = S.method;
   let outMode = "up", result = null, saveT;
   const read = () => ({ name: $("#f_name").value.trim(), method: $("#f_method").value, window_start: $("#f_ws").value, min_window_games: +$("#f_min").value,
-    margin: +$("#f_margin").value, quota_pct: +$("#f_quota").value, quota_n: +$("#f_qn").value });
+    margin: +$("#f_margin").value, quota_pct: +$("#f_quota").value, quota_n: +$("#f_qn").value, strict: $("#f_strict").checked });
   const sync = () => { const q = $("#f_method").value === "quota"; $("#w_qn").style.display = q ? "" : "none"; $("#l_m").parentElement.style.display = q ? "none" : ""; $("#l_q").parentElement.style.display = q ? "none" : ""; };
   const persist = () => { clearTimeout(saveT); saveT = setTimeout(async () => { const s = await api("/promo", { settings: read(), overrides: OV }); $("#p_msg").className = s.ok ? "msg ok" : "msg no"; $("#p_msg").textContent = s.ok ? "서버에 저장했습니다" : s.msg; }, 500); };
   const run = save => { const s = read(); sync(); result = promote(s, OV); drawRes(s); drawOut(s); if (save) persist(); };
@@ -1001,7 +1037,7 @@ async function adminPromo(el) {
   };
   $("#oseg").onclick = e => { const o = e.target.dataset.o; if (!o) return; outMode = o; [...$("#oseg").children].forEach(b => b.classList.toggle("on", b.dataset.o === o)); drawOut(read()); };
   $("#calc").onclick = () => run(true);
-  ["f_method", "f_ws", "f_min", "f_margin", "f_quota", "f_qn", "f_name"].forEach(id => $("#" + id).onchange = () => run(true));
+  ["f_method", "f_ws", "f_min", "f_margin", "f_quota", "f_qn", "f_name", "f_strict"].forEach(id => $("#" + id).onchange = () => run(true));
   $("#reset").onclick = () => { OV = {}; run(true); };
   $("#copy").onclick = async () => { try { await navigator.clipboard.writeText($("#out").value); $("#copy").textContent = "복사됨"; } catch { $("#out").select(); document.execCommand("copy"); } setTimeout(() => $("#copy").textContent = "복사", 1200); };
   run(false);
@@ -1032,6 +1068,10 @@ function promote(s, OV) {
         else if (ti < T.length - 1 && v <= bound[ti] - s.margin) (enough(r) ? dnC : (r.why = `강등권이나 경기 부족(${r.wg}/${s.min_window_games})`, null))?.push(r); });
       upC.forEach((r, n) => { if (n < cap) { r.dec = "up"; r.why = `상위 경계 ${r0(bound[ti - 1])}+${s.margin} 초과 (+${r0(P[r.i].r - bound[ti - 1])})`; } else r.why = "승격권이나 정원 초과"; });
       dnC.slice().reverse().forEach((r, n) => { if (n < cap) { r.dec = "down"; r.why = `하위 경계 ${r0(bound[ti])}−${s.margin} 미달 (${r0(P[r.i].r - bound[ti])})`; } else r.why = "강등권이나 정원 초과"; });
+    }
+    if (s.strict !== false) {          // 순위 역전 막기: 위에서부터 끊기지 않고 이어진 승격만, 아래에서부터 이어진 강등만 인정
+      let go = true; R.forEach(r => { if (r.dec === "up" && !go) { r.dec = "hold"; r.why = "더 높은 순위가 승격 안 돼서 보류 (순위 역전 막기)"; } else if (r.dec !== "up") go = false; });
+      go = true; R.slice().reverse().forEach(r => { if (r.dec === "down" && !go) { r.dec = "hold"; r.why = "더 낮은 순위가 강등 안 돼서 보류 (순위 역전 막기)"; } else if (r.dec !== "down") go = false; });
     }
     R.forEach(r => { const o = OV[P[r.i].k]; if (o) { if ((o === "up" && ti === 0) || (o === "down" && ti === T.length - 1)) return; r.dec = o; r.ov = true; r.why = "관리자 지정"; } });
     rows.push(...R);
@@ -1084,10 +1124,17 @@ async function adminLadder(el) {
       const s = await api("/ladder/save", { act: "del", toon: d.dataset.del, id: d.dataset.id }); if (s.ok) adminLadder(el); else say(s.msg); }
   };
 }
-function adminHealth(el) {
-  el.innerHTML = `<div class="panel scroll"><table class="tbl"><thead><tr><th>출처</th><th>상태</th><th class="r">행</th></tr></thead><tbody>
+async function adminHealth(el) {
+  el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
+  const r = await api("/sources"), c = r.cafe || {}, st = (r.stat || {}).cafe;
+  const cafe = `<div class="h3">카페 ELO 결과입력 게시판<em>매일 아침 자동 수집</em></div>
+    <div class="card">${st ? `<p class="msg ${st.ok ? "ok" : "no"}">${esc(st.at || "")} · ${st.ok ? `${st.games}경기 인식` : esc(st.msg || "실패")}</p>
+      ${st.unparsed?.length ? `<p class="msg">형식을 못 읽은 글 ${Math.max(st.skipped || 0, st.unparsed.length)}개${(st.skipped || 0) > st.unparsed.length ? ` 중 최근 ${st.unparsed.length}개` : ""} (줄을 누르면 카페 글이 열립니다)</p><table class="mini cafeun"><tr><th>날짜</th><th>경기 (글쓴이 vs 상대)</th></tr>${st.unparsed.map(u => {
+        const t = String(u.title || "").trim(), w = String(u.writer || "").trim(), url = `https://cafe.naver.com/ca-fe/cafes/${encodeURIComponent(c.clubid || "30800617")}/articles/${encodeURIComponent(u.articleId)}`;
+        return `<tr><td class="num">${esc((u.date || "").slice(5).replace("-", "."))}</td><td><a href="${url}" target="_blank" rel="noopener">${/^vs\b/i.test(t) ? `<b>${esc(w || "?")}</b> ${esc(t)}` : `${esc(t)} <span style="color:var(--ink3)">· 글쓴이 ${esc(w || "?")}</span>`}</a></td></tr>`; }).join("")}</table>` : ""}` : `<p class="msg">아직 수집한 적이 없습니다.</p>`}</div>`;
+  el.innerHTML = `<div class="h3" style="margin-top:0">출처별 상태</div><div class="panel scroll"><table class="tbl"><thead><tr><th>출처</th><th>상태</th><th class="r">행</th></tr></thead><tbody>
     ${D.meta.sources.map(s => `<tr class="static"><td>${esc(s.label)}</td><td style="color:${/불가|실패/.test(s.status) ? "var(--down)" : "var(--ink2)"}">${esc(s.status)}</td><td class="r num" style="font-size:16px">${s.rows}</td></tr>`).join("")}</tbody></table></div>
-    ${D.meta.gaps.length ? `<div class="notice red" style="margin-top:12px"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}`;
+    ${D.meta.gaps.length ? `<div class="notice red" style="margin-top:12px"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}${cafe}`;
 }
 
 const LEAGUES = () => ["ELO", ...D.leagues.map(l => l.name).filter(n => n !== "ELO"), "KTL"].filter((x, i, a) => a.indexOf(x) === i);
@@ -1105,44 +1152,64 @@ function gameForm(v) {
 }
 const readForm = el => { const o = {}; el.querySelectorAll("[data-f]").forEach(x => o[x.dataset.f] = x.value.trim()); return o; };
 const validGame = o => !/^[A-Za-z0-9_.\-]{2,30}$/.test(o.winner) || !/^[A-Za-z0-9_.\-]{2,30}$/.test(o.loser) ? "아이디는 영어·숫자로만" : o.winner.toLowerCase() === o.loser.toLowerCase() ? "승자와 패자가 같습니다" : !o.date ? "날짜를 넣어 주세요" : "";
-async function adminFix(el) {
+// ELO 입력값: 들어온 모든 경기를 최근 순으로, 년·월 필터 · 줄마다 수정/삭제 (다음 갱신 때 반영)
+const AG = { ym: "", lg: "", q: "" };
+async function adminGames(el) {
   el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
   const r = await api("/fix");
   if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
-  const fixes = r.list || [];
-  el.innerHTML = `<div class="notice"><b>!</b><div>이미 순위에 들어간 경기(시트·카페·입력 양식 어디서 왔든)를 고치거나 지웁니다. 잘못 입력됐거나 조작이 의심되는 경기에 쓰세요. <b>다음 새벽 갱신 때</b> 순위가 다시 계산됩니다.</div></div>
-    <div class="h3">고친 경기<em>${fixes.length}건 · 되돌리면 원래대로</em></div>
-    <div class="panel scroll">${fixes.length ? `<table class="mini" id="fl"><tr><th>구분</th><th>원래 경기</th><th>바꾼 내용</th><th>메모</th><th></th></tr>
+  const fixes = r.list || [], fixed = new Map(fixes.map(f => [f.sig, f]));
+  const yms = [...new Set(G.map(g => isoD(g[0]).slice(0, 7)))].sort().reverse();
+  if (!AG.ym || !yms.includes(AG.ym)) AG.ym = yms[0] || "";
+  const years = [...new Set(yms.map(x => x.slice(0, 4)))];
+  el.innerHTML = `<div class="notice"><b>!</b><div>들어온 모든 경기(시트·카페 어디서 왔든)입니다. 잘못된 경기는 <b>수정</b>·<b>삭제</b>하세요. <b>다음 아침 갱신 때</b> 순위가 다시 계산됩니다.</div></div>
+    <div class="bar" style="flex-wrap:wrap;gap:8px">
+      <select class="sel" id="g_y" aria-label="년">${years.map(y => `<option ${AG.ym.startsWith(y) ? "selected" : ""}>${y}</option>`).join("")}<option value="all">전체 기간</option></select>
+      <select class="sel" id="g_m" aria-label="월"></select>
+      <select class="sel" id="g_l" aria-label="리그"><option value="">전체 리그</option>${D.leagues.map((l, k) => `<option value="${k}" ${AG.lg === String(k) ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select>
+      <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="g_q" placeholder="선수 아이디" value="${esc(AG.q)}" autocomplete="off"></label></div>
+    <div class="h3" id="g_h"></div>
+    <div class="panel scroll"><table class="mini" id="gl"><tbody></tbody></table></div>
+    <button class="more" id="g_more">더 보기</button>
+    ${fixes.length ? `<details class="regbox" style="margin-top:14px"><summary><span>고친 경기 <b>${fixes.length}건</b> · 되돌리기</span><i>+</i></summary><div class="scroll"><table class="mini"><tr><th>구분</th><th>원래 경기</th><th>바꾼 내용</th><th></th></tr>
       ${fixes.slice().reverse().map(f => `<tr><td>${f.act === "del" ? `<span class="dec dn">삭제</span>` : `<span class="dec up">수정</span>`}</td><td>${esc(f.view || f.sig.split("#")[0].replaceAll("|", " · "))}</td>
-        <td>${f.data ? esc(`${f.data.date} ${f.data.league} ${f.data.winner} 승 (vs ${f.data.loser}) ${f.data.map || "확인불가"}`) : "—"}</td><td>${esc(f.note || "")}</td>
-        <td><button class="btn sm" data-undo="${esc(f.sig)}">되돌리기</button></td></tr>`).join("")}</table>` : `<div class="empty">아직 고친 경기가 없습니다</div>`}</div>
-    <div class="h3">경기 찾기<em>선수 아이디로 검색 · 최근 순 80경기</em></div>
-    <div class="bar"><label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="fq" placeholder="선수 아이디 (예: rox)" autocomplete="off"></label>
-      <select class="sel" id="fl2" aria-label="리그"><option value="">전체 리그</option>${D.leagues.map((l, k) => `<option value="${k}">${esc(l.name)}</option>`).join("")}</select></div>
-    <div class="panel scroll"><table class="mini" id="gl"><tbody><tr><td class="empty">아이디를 넣으면 경기가 나옵니다</td></tr></tbody></table></div>`;
-  const fixed = new Map(fixes.map(f => [f.sig, f]));
+        <td>${f.data ? esc(`${f.data.date} ${f.data.league} ${f.data.winner} 승 (vs ${f.data.loser}) ${f.data.map || "확인불가"}`) : "—"}</td>
+        <td><button class="btn sm" data-undo="${esc(f.sig)}">되돌리기</button></td></tr>`).join("")}</table></div></details>` : ""}`;
   const view = g => `${isoD(g[0])} ${D.leagues[g[1]].name} ${P[g[3]].id} 승 (vs ${P[g[4]].id}) ${mapN(g)}`;
+  const months = () => { const y = $("#g_y").value; $("#g_m").disabled = y === "all";
+    $("#g_m").innerHTML = `<option value="">${y === "all" ? "-" : "전체 월"}</option>` + yms.filter(x => x.startsWith(y)).map(x => `<option value="${x}" ${AG.ym === x ? "selected" : ""}>${+x.slice(5)}월</option>`).join(""); };
+  let lim = 200;
   const draw = () => {
-    const q = $("#fq").value.trim().toLowerCase(), lg = $("#fl2").value;
-    if (q.length < 2) return;
-    const ps = new Set(P.filter(p => p.id.toLowerCase() === q || p.base === q).map(p => p.i));
-    if (!ps.size) P.filter(p => p.id.toLowerCase().includes(q)).slice(0, 3).forEach(p => ps.add(p.i));
-    const js = [...new Set([...ps].flatMap(i => byP[i]))].filter(j => lg === "" || G[j][1] === +lg).sort((a, b) => b - a).slice(0, 80);
-    $("#gl tbody").innerHTML = js.map(j => { const g = G[j], sg = sig(g), f = fixed.get(sg);
-      return `<tr data-j="${j}"><td class="num">${isoD(g[0])}</td><td>${esc(D.leagues[g[1]].name)}</td><td><b>${esc(P[g[3]].id)}</b> ${raceB(RN[g[5]])}</td><td>${esc(P[g[4]].id)} ${raceB(RN[g[6]])}</td><td>${esc(mapN(g))}</td><td style="color:var(--ink3);font-size:11px">${esc(D.srcs?.[g[9]] || "")}</td>
-        <td style="white-space:nowrap">${f ? `<span class="pill wait">${f.act === "del" ? "삭제 예정" : "수정 예정"}</span>` : `<button class="btn sm" data-edit="1">수정</button> <button class="btn sm del" data-del="1">삭제</button>`}</td></tr><tr class="ed" hidden><td colspan="7"></td></tr>`; }).join("") || `<tr><td class="empty">경기가 없습니다</td></tr>`;
+    const y = $("#g_y").value, m = $("#g_m").value; AG.ym = m || (y === "all" ? "" : y); AG.lg = $("#g_l").value; AG.q = $("#g_q").value.trim().toLowerCase();
+    const ps = AG.q.length >= 2 ? new Set(P.filter(p => p.id.toLowerCase().includes(AG.q)).map(p => p.i)) : null;
+    const js = [];
+    for (let j = G.length - 1; j >= 0; j--) { const g = G[j];
+      if (y !== "all" && !isoD(g[0]).startsWith(m || y)) continue;
+      if (AG.lg !== "" && g[1] !== +AG.lg) continue;
+      if (ps && !ps.has(g[3]) && !ps.has(g[4])) continue;
+      js.push(j); }
+    $("#g_h").innerHTML = `${y === "all" ? "전체 기간" : m ? `${m.slice(0, 4)}년 ${+m.slice(5)}월` : `${y}년`}<em>${js.length.toLocaleString()}경기 · 최근 순</em>`;
+    $("#gl tbody").innerHTML = `<tr><th>날짜</th><th>리그</th><th>승자</th><th>패자</th><th>맵</th><th class="hide-m">출처</th><th></th></tr>` + js.slice(0, lim).map(j => { const g = G[j], f = fixed.get(sig(g));
+      return `<tr data-j="${j}"><td class="num">${isoD(g[0]).slice(5)}</td><td>${esc(D.leagues[g[1]].name)}</td><td><b>${esc(P[g[3]].id)}</b> ${raceB(RN[g[5]])}</td><td>${esc(P[g[4]].id)} ${raceB(RN[g[6]])}</td><td style="color:var(--ink3)">${esc(mapN(g))}</td><td class="hide-m" style="color:var(--ink3);font-size:11px">${esc(D.srcs?.[g[9]] || "")}</td>
+        <td style="white-space:nowrap">${f ? `<span class="pill wait">${f.act === "del" ? "삭제 예정" : "수정 예정"}</span>` : `<button class="btn sm" data-edit="1">수정</button> <button class="btn sm del" data-del="1">삭제</button>`}</td></tr><tr class="ed" hidden><td colspan="7"></td></tr>`; }).join("")
+      + (js.length ? "" : `<tr><td colspan="7" class="empty">경기가 없습니다</td></tr>`);
+    $("#g_more").style.display = js.length > lim ? "" : "none";
   };
-  $("#fq").oninput = draw; $("#fl2").onchange = draw;
+  months(); draw();
+  $("#g_y").onchange = () => { lim = 200; AG.ym = $("#g_y").value === "all" ? "" : (yms.find(x => x.startsWith($("#g_y").value)) || ""); months(); draw(); };
+  $("#g_m").onchange = $("#g_l").onchange = () => { lim = 200; draw(); };
+  $("#g_q").oninput = () => { lim = 200; draw(); };
+  $("#g_more").onclick = () => { lim += 300; draw(); };
   el.onclick = async e => {
-    const u = e.target.closest("[data-undo]"); if (u) { await api("/fix/del", { sig: u.dataset.undo }); return adminFix(el); }
+    const u = e.target.closest("[data-undo]"); if (u) { await api("/fix/del", { sig: u.dataset.undo }); return adminGames(el); }
     const row = e.target.closest("tr[data-j]") || e.target.closest("tr.ed")?.previousElementSibling; if (!row || !row.dataset.j) return;
     const g = G[+row.dataset.j], ed = row.nextElementSibling, sg = sig(g);
     if (e.target.closest("[data-del]")) { const b = e.target.closest("[data-del]"); if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 삭제"; return; }
-      const s2 = await api("/fix/save", { sig: sg, act: "del", view: view(g) }); if (s2.ok) adminFix(el); return; }
+      const s2 = await api("/fix/save", { sig: sg, act: "del", view: view(g) }); if (s2.ok) adminGames(el); return; }
     if (e.target.closest("[data-edit]")) { ed.hidden = false; ed.firstElementChild.innerHTML = gameForm({ date: isoD(g[0]), league: D.leagues[g[1]].name, map: g[2] >= 0 ? D.maps[g[2]] : "", winner: P[g[3]].id, loser: P[g[4]].id, wrace: RN[g[5]] || "", lrace: RN[g[6]] || "" }); return; }
     if (e.target.closest("[data-cancel]")) { ed.hidden = true; return; }
     if (e.target.closest("[data-save]")) { const o = readForm(ed), bad = validGame(o); if (bad) { ed.querySelector(".gm").className = "msg no gm"; ed.querySelector(".gm").textContent = bad; return; }
-      const s2 = await api("/fix/save", { sig: sg, act: "edit", data: o, view: view(g) }); if (s2.ok) adminFix(el); else ed.querySelector(".gm").textContent = s2.msg; }
+      const s2 = await api("/fix/save", { sig: sg, act: "edit", data: o, view: view(g) }); if (s2.ok) adminGames(el); else ed.querySelector(".gm").textContent = s2.msg; }
   };
 }
 

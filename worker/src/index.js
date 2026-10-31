@@ -316,7 +316,8 @@ export default {
         id, name: 짧게(s.name, 40) || '이름 없는 시트', league: 짧게(s.league, 30) || 'ELO',
         weight: Math.max(0, Math.min(10, +s.weight || 1)), url: 짧게(s.url, 300),
         sheet: 짧게(s.sheet, 80), gid: 짧게(s.gid, 20), enabled: s.enabled !== false,
-        mapping: s.mapping || null, added: Date.now(),
+        mapping: s.mapping || null, added: Date.now(), stage: s.stage === 'live' ? 'live' : '',
+        defaultDate: /^\d{4}-\d{2}-\d{2}$/.test(s.defaultDate || '') ? s.defaultDate : undefined,
       };
       const i = L.findIndex(x => x.id === id);
       if (i >= 0) { item.added = L[i].added; L[i] = item; } else L.push(item);
