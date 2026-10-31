@@ -248,41 +248,6 @@ function risersAndUpsets() {
   </div>`;
 }
 
-/* ---------- 선수 카드 이미지 ---------- */
-async function saveCard(i) {
-  const p = P[i], W = 1080, H = 1350, c = document.createElement("canvas"); c.width = W; c.height = H;
-  const x = c.getContext("2d"), css = getComputedStyle(document.documentElement), v = n => css.getPropertyValue(n).trim();
-  try { await document.fonts.ready; } catch { }
-  const tcol = v("--" + (p.tier || "none")) || "#888", disp = '"Big Shoulders Display", "Arial Narrow", sans-serif', body = '"IBM Plex Sans KR", sans-serif';
-  let g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, "#fff8ef"); g.addColorStop(1, "#efe9f6"); x.fillStyle = g; x.fillRect(0, 0, W, H);
-  const glow = (cx, cy, r, col) => { const rg = x.createRadialGradient(cx, cy, 0, cx, cy, r); rg.addColorStop(0, col); rg.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = rg; x.fillRect(0, 0, W, H); };
-  glow(0, 0, 900, "rgba(190,60,100,.22)"); glow(W, 260, 800, "rgba(60,90,190,.18)"); glow(W / 2, H, 700, "rgba(226,162,74,.22)");
-  x.save(); x.globalAlpha = .18; x.fillStyle = tcol; x.beginPath(); x.moveTo(0, 0); x.lineTo(W * .62, 0); x.lineTo(W * .38, H * .55); x.lineTo(0, H * .55); x.fill(); x.restore();
-  x.fillStyle = tcol; x.fillRect(0, 0, 14, H);
-  const brass = (y0, y1) => { const b = x.createLinearGradient(0, y0, 0, y1); b.addColorStop(0, "#f3c654"); b.addColorStop(.6, "#c9871c"); b.addColorStop(1, "#8a4d0e"); return b; };
-  x.fillStyle = "#1c1317"; x.font = `600 30px ${body}`; x.fillText("kS CLAN ELO", 70, 100);
-  x.fillStyle = "#8c7a83"; x.font = `500 26px ${body}`; x.fillText(`${p.tier || "미배정"} · ${RACE_KO[p.race] || ""}${p.off ? " · 부종" : ""}`, 70, 145);
-  x.fillStyle = "#1c1317"; let fs = 200; x.font = `900 ${fs}px ${disp}`; while (x.measureText(p.id).width > W - 140 && fs > 80) { fs -= 8; x.font = `900 ${fs}px ${disp}`; }
-  x.fillText(p.id, 64, 150 + fs * .9);
-  const ry = 150 + fs * .9 + 260; x.fillStyle = brass(ry - 230, ry); x.font = `900 280px ${disp}`; x.fillText(String(r0(p.r)), 64, ry);
-  x.fillStyle = "#8c7a83"; x.font = `600 30px ${body}`; x.fillText("ELO", 70 + x.measureText("").width, ry + 50);
-  const stat = (lbl, val, sx) => { x.fillStyle = "#1c1317"; x.font = `900 76px ${disp}`; x.fillText(val, sx, ry + 170); x.fillStyle = "#8c7a83"; x.font = `500 26px ${body}`; x.fillText(lbl, sx, ry + 210); };
-  stat("클랜 순위", rankAll[i] ? "#" + rankAll[i] : "—", 70); stat(`${p.tier || "티어"} 내`, rankTier[i] ? "#" + rankTier[i] : "—", 350);
-  stat("통산 전적", `${p.w}-${p.l}`, 600); stat("승률", pctS(p.w, p.w + p.l), 860 - 40);
-  const h = p.h.slice(-18); if (h.length > 1) {   // 최근 레이팅 흐름
-    const y0 = ry + 260, y1 = H - 190, lo = Math.min(...h.map(z => z[1])) - 20, hi = Math.max(...h.map(z => z[1])) + 20;
-    const X = k => 70 + k * (W - 140) / (h.length - 1), Y = r => y1 - (r - lo) / (hi - lo) * (y1 - y0);
-    x.beginPath(); h.forEach((z, k) => k ? x.lineTo(X(k), Y(z[1])) : x.moveTo(X(k), Y(z[1]))); x.strokeStyle = tcol === "#141012" ? "#1c1317" : tcol; x.lineWidth = 7; x.lineJoin = "round"; x.stroke();
-    x.fillStyle = "#b8641c"; x.beginPath(); x.arc(X(h.length - 1), Y(h.at(-1)[1]), 12, 0, 7); x.fill();
-  }
-  const form = byP[i].slice(-10); form.forEach((j, k) => { const w = G[j][3] === i; x.fillStyle = w ? "#109257" : "rgba(212,42,70,.15)"; x.fillRect(70 + k * 64, H - 150, 52, 52);
-    x.fillStyle = w ? "#fff" : "#d42a46"; x.font = `900 30px ${disp}`; x.fillText(w ? "W" : "L", 70 + k * 64 + 15, H - 112); });
-  x.fillStyle = "#8c7a83"; x.font = `500 24px ${body}`; x.textAlign = "right"; x.fillText(`ks-clan-elo.pages.dev · ${D.meta.updated.slice(0, 10)}`, W - 60, H - 40);
-  const blob = await new Promise(r => c.toBlob(r, "image/png")), name = `kS-ELO_${p.id}.png`, file = new File([blob], name, { type: "image/png" });
-  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } } catch (e) { if (e.name === "AbortError") return; }
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
-}
-
 /* ---------- 선수 ---------- */
 function agg(idxs, i, keyFn) {
   const m = new Map();
@@ -349,8 +314,7 @@ function viewPlayer(k) {
       <div class="meta">${tierB(p.tier)} ${raceB(p.race)} <span class="st ${p.st}">${ST_KO[p.st]}</span> ${kt ? teamB(kt.name) : ""}
         ${isRanked(p) ? "" : `<span class="prov">잠정 — 유효경기 ${p.eff.toFixed(1)}</span>`}
         ${sibs.map(s => `<a class="chip" href="${pLink(s.i)}">${esc(s.id)}</a>`).join("")}</div>
-      <div class="form" style="margin-top:12px">${form}</div>
-      <div class="pbtn"><button class="btn sm" id="pin">${ME.get() === p.k ? "★ 내 아이디로 고정됨" : "☆ 내 아이디로 고정"}</button><button class="btn sm" id="card">이미지 저장</button></div>
+      <div class="prow"><div class="form">${form}</div><button class="btn sm pin" id="pin">${ME.get() === p.k ? "★ 내 아이디로 고정됨" : "☆ 내 아이디로 고정"}</button></div>
     </div>
     <div class="big">
       <div class="kv acc"><b class="num">${r0(p.r)}</b><span>ELO</span></div>
@@ -399,7 +363,6 @@ function viewPlayer(k) {
   <p style="color:var(--ink3);font-size:12px;margin-top:14px">기록 기간 ${p.first ? p.first.replaceAll("-", ".") : "—"} ~ ${p.last ? p.last.replaceAll("-", ".") : "—"} · 감쇠 유효경기 ${p.eff.toFixed(1)}</p>`;
   app.onclick = e => { const v = e.target.closest("[data-vs]")?.dataset.vs; if (v) location.hash = `#/vs/${encodeURIComponent(p.k)}/${encodeURIComponent(v)}`; };
   $("#pin").onclick = () => { const on = ME.get() === p.k; ME.set(on ? "" : p.k); $("#pin").textContent = on ? "☆ 내 아이디로 고정" : "★ 내 아이디로 고정됨"; };
-  $("#card").onclick = async () => { const b = $("#card"); b.disabled = true; b.textContent = "만드는 중…"; try { await saveCard(i); } finally { b.disabled = false; b.textContent = "이미지 저장"; } };
 }
 
 /* ---------- KPL ---------- */

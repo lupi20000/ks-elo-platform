@@ -630,7 +630,7 @@ textarea.out{width:100%;min-height:240px;background:var(--field);border:1px soli
 .upset .ut i{font-style:normal;color:var(--ink3);font-size:12px}
 .upset .ut span{color:var(--ink2)}
 .upset .uw{font:500 11px var(--data);color:var(--ink3)}
-.pbtn{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.prow{display:flex;align-items:center;gap:12px;margin-top:12px}.prow .form{min-width:0}.prow .pin{flex:none;white-space:nowrap}
 .ticker .ntag{font:800 11px var(--body);padding:2px 7px;color:#fff;letter-spacing:.02em}
 .ticker .ntag.up{background:var(--up)}
 .ticker .ntag.ups{background:var(--live)}
