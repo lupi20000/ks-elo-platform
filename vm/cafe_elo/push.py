@@ -93,7 +93,7 @@ def main():
         time.sleep(0.5)
     for i in range(0, len(posts), 100):
         req = urllib.request.Request(API, data=json.dumps({"posts": posts[i:i + 100]}).encode("utf-8"),
-                                     headers={"content-type": "application/json", "x-ingest-key": key}, method="POST")
+                                     headers={"content-type": "application/json", "x-ingest-key": key, "User-Agent": "Mozilla/5.0"}, method="POST")
         print("보냄:", urllib.request.urlopen(req, timeout=60).read().decode("utf-8"))
     if posts:
         state["last"] = max(int(p["articleId"]) for p in posts)
