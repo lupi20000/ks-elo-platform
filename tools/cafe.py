@@ -142,7 +142,8 @@ def parse_text(text, writer):
     return []
 
 
-RACE_WORD = {"p": "P", "t": "T", "z": "Z", "프로토스": "P", "토스": "P", "프": "P", "테란": "T", "테": "T", "저그": "Z", "저": "Z"}
+RACE_WORD = {"p": "P", "t": "T", "z": "Z", "프로토스": "P", "토스": "P", "프": "P", "테란": "T", "테": "T", "저그": "Z", "저": "Z",
+             "protoss": "P", "toss": "P", "terran": "T", "zerg": "Z"}
 
 
 def _player(v):
@@ -150,7 +151,7 @@ def _player(v):
     v = re.sub(r"[​-‏﻿☀-➿\U0001F000-\U0001FFFF]", " ", v or "")
     rc = race_of(v)
     pid = None
-    for tok in re.split(r"[\s,/|·]+", re.sub(r"\(\s*[PTZptz]\s*\)", " ", v)):
+    for tok in re.split(r"[\s,/|·()]+", re.sub(r"\(\s*[PTZptz]\s*\)", " ", v)):   # 'rox(Zerg)' 처럼 괄호도 나눔
         t = tok.strip(" :.-")
         if not t:
             continue
@@ -194,7 +195,7 @@ def parse_form(body):
     low = res.lower()
     named = [x for x, c in ((a, ca), (b, cb)) if re.search(rf"(?<![A-Za-z0-9_]){re.escape(c)}(?![A-Za-z0-9_])", low)]
     sc = re.search(r"(\d+)\s*[:;/：]\s*(\d+)", res)
-    compact = re.sub(r"[\s,./]", "", res)
+    compact = re.sub(r"[\s,./\-]", "", res)                # '승-승-승' 도 '승승승'으로
     out = lambda w, l, n: [(w, l, "", n)] if n > 0 else []
     if sc:
         x, y = int(sc.group(1)), int(sc.group(2))
