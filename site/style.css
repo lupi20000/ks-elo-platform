@@ -650,3 +650,6 @@ textarea.out{width:100%;min-height:240px;background:var(--field);border:1px soli
 .spread .st{font:800 16px var(--disp);letter-spacing:.06em;fill:var(--tc);text-transform:uppercase}
 .spread .sx{font:500 14px var(--data);fill:var(--ink3)}
 .spread .sm{font:800 14px var(--disp);fill:var(--ink)}
+.cafeun td:last-child{white-space:normal;word-break:break-all}
+.cafeun a{color:var(--ink)}
+.cafeun td:first-child{color:var(--ink3)}

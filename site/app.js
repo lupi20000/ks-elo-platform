@@ -908,7 +908,9 @@ async function adminCafe(el) {
     <div class="btns"><button class="btn pri" id="c_save">저장</button><span class="msg" id="c_msg"></span></div></div>
     <div class="h3">마지막 수집 결과</div>
     <div class="card">${st ? `<p class="msg ${st.ok ? "ok" : "no"}">${esc(st.at || "")} · ${st.ok ? `${st.games}경기 인식` : esc(st.msg || "실패")}</p>
-      ${st.unparsed?.length ? `<p class="msg">형식을 못 읽은 글 ${st.unparsed.length}개 (글쓴이에게 양식대로 다시 써 달라고 안내해 주세요)</p><table class="mini">${st.unparsed.map(u => `<tr><td class="num">${esc(u.articleId)}</td><td>${esc(u.title)}</td></tr>`).join("")}</table>` : ""}` : `<p class="msg">아직 수집한 적이 없습니다.</p>`}</div>`;
+      ${st.unparsed?.length ? `<p class="msg">형식을 못 읽은 글 ${Math.max(st.skipped || 0, st.unparsed.length)}개${(st.skipped || 0) > st.unparsed.length ? ` 중 최근 ${st.unparsed.length}개` : ""} (글쓴이에게 양식대로 다시 써 달라고 안내해 주세요 · 줄을 누르면 카페 글이 열립니다)</p><table class="mini cafeun"><tr><th>날짜</th><th>경기 (글쓴이 vs 상대)</th></tr>${st.unparsed.map(u => {
+        const t = String(u.title || "").trim(), w = String(u.writer || "").trim(), url = `https://cafe.naver.com/ca-fe/cafes/${encodeURIComponent(c.clubid || "30800617")}/articles/${encodeURIComponent(u.articleId)}`;
+        return `<tr><td class="num">${esc((u.date || "").slice(5).replace("-", "."))}</td><td><a href="${url}" target="_blank" rel="noopener">${/^vs\b/i.test(t) ? `<b>${esc(w || "?")}</b> ${esc(t)}` : `${esc(t)} <span style="color:var(--ink3)">· 글쓴이 ${esc(w || "?")}</span>`}</a></td></tr>`; }).join("")}</table>` : ""}` : `<p class="msg">아직 수집한 적이 없습니다.</p>`}</div>`;
   $("#c_save").onclick = async () => {
     const s = await api("/cafe", { url: $("#c_url").value.trim(), clubid: $("#c_club").value.trim(), menuid: $("#c_menu").value.trim(), enabled: $("#c_on").checked });
     $("#c_msg").className = s.ok ? "msg ok" : "msg no"; $("#c_msg").textContent = s.ok ? `저장했습니다. 게시판 번호 ${s.cafe.menuid || "?"}` : s.msg;
