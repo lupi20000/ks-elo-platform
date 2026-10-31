@@ -17,5 +17,13 @@ for aid, v in sorted(P.items(), key=lambda x: -int(x[0])):
     if shown < 25:
         shown += 1
         body = [mask(l.strip()) for l in str(v.get("b") or "").splitlines() if l.strip()][:6]
+        t = re.sub(r"[\u200b-\u200f\ufeff]", "", v.get("b") or "")
+        labs = list(re.finditer(r"[A-Za-z0-9가-힣]?\s*선수[^:：\n]*[:：]", t)); rm = re.search(r"결과[^:：\n]*[:：]", t)
+        if len(labs) >= 2 and rm:
+            a = cafe._player(t[labs[0].end():labs[1].start()]); b = cafe._player(t[labs[1].end():rm.start()])
+            raw = lambda x: " ".join(f"U+{ord(c):04X}" if not c.isalnum() and not c.isspace() and ord(c) > 127 else ("A" if c.isascii() and c.isalpha() else c) for c in x)
+            print("   진단: A선수", bool(a), repr(raw(t[labs[0].end():labs[1].start()])[:80]), "| B선수", bool(b), repr(raw(t[labs[1].end():rm.start()])[:80]))
+        else:
+            print("   진단: 칸 찾기 실패", len(labs), bool(rm))
         print(f"--- 제목: {mask(v.get('t') or '')} | 본문 {len(str(v.get('b') or ''))}자:", " / ".join(body)[:300])
 print("읽힘", ok, "· 못 읽음", bad)
