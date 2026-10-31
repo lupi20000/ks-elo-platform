@@ -466,10 +466,55 @@ function lgTabs(on) {
   if (!L.length) return "";
   return `<div class="seg lgtabs"><a class="${on === "kpl" ? "on" : ""}" href="#/kpl">${esc(K?.season || "KPL")}</a>${L.map((l, n) => `<a class="${on === n ? "on" : ""}" href="#/kpl/lg/${n}">${esc(l.name)}</a>`).join("")}</div>`;
 }
+// 같은 두 선수의 세트를 한 매치로 묶는다 (다전제) — js: 경기 번호(시간 순)
+function toMatches(js) {
+  const M = [], open = new Map();
+  js.forEach(j => { const g = G[j], a = Math.min(g[3], g[4]), b = Math.max(g[3], g[4]), key = a + ":" + b;
+    let m = open.get(key);
+    if (!m) { m = { a, b, sa: 0, sb: 0, d0: g[0], d1: g[0], js: [] }; M.push(m); open.set(key, m); }
+    m[g[3] === a ? "sa" : "sb"]++; m.d1 = g[0]; m.js.push(j); });
+  M.forEach(m => { m.w = m.sa > m.sb ? m.a : m.sb > m.sa ? m.b : null; m.l = m.w == null ? null : m.w === m.a ? m.b : m.a; });
+  return M;
+}
+// 토너먼트: 선수마다 몇 번째 매치인지로 라운드를 정한다
+function bracket(M, size) {
+  const cnt = new Map(); M.sort((x, y) => x.d0 - y.d0);
+  M.forEach(m => { const r = Math.max(cnt.get(m.a) || 0, cnt.get(m.b) || 0) + 1; m.r = r; cnt.set(m.a, r); cnt.set(m.b, r); });
+  const R = Math.max(0, ...M.map(m => m.r));
+  const lab = r => { const n = size ? size / 2 ** (r - 1) : 2 ** (R - r + 1); return n <= 2 ? "결승" : n + "강"; };
+  const cols = []; for (let r = 1; r <= R; r++) cols.push({ r, name: lab(r), M: M.filter(m => m.r === r) });
+  if (size) for (let r = R + 1; size / 2 ** (r - 1) >= 2; r++) cols.push({ r, name: lab(r), M: [], tbd: size / 2 ** r });   // 아직 안 치른 라운드는 빈 칸
+  const last = cols.at(-1);
+  if (last && last.name === "결승" && last.M.length > 1 && cols.length > 1) {      // 결승 라운드에 매치가 둘이면 하나는 3·4위전
+    const semiW = new Set(cols.at(-2).M.map(m => m.w));
+    last.M.forEach(m => { if (!(semiW.has(m.a) && semiW.has(m.b))) m.third = true; });
+  }
+  const fin = last?.name === "결승" ? last.M.find(m => !m.third && m.w != null) : null;
+  return { cols, champ: fin ? fin.w : null };
+}
+function bracketHTML(B) {
+  const side = (m, i, s) => `<a class="bp ${m.w === i ? "win" : m.w != null ? "lose" : ""}" href="${pLink(i)}"><span>${esc(P[i].id)} ${raceB(P[i].race)}</span><b class="num">${s}</b></a>`;
+  return `<div class="brk">${B.cols.map(c => `<div class="bcol"><div class="bh">${c.name}</div><div class="bms">${c.M.map(m => `<div class="bm ${m.third ? "third" : ""}">${m.third ? `<i>3·4위전</i>` : ""}${side(m, m.a, m.sa)}${side(m, m.b, m.sb)}<em>${fmtD(m.d1).slice(5)}</em></div>`).join("")}${Array.from({ length: c.tbd || 0 }, () => `<div class="bm tbd"><span class="bp">미정</span><span class="bp">미정</span></div>`).join("")}</div></div>`).join("")}
+    ${B.champ != null ? `<div class="bcol champ"><div class="bh">우승</div><div class="bms"><a class="bwin" href="${pLink(B.champ)}">${TROPHY}<b>${esc(P[B.champ].id)}</b>${raceB(P[B.champ].race)}</a></div></div>` : ""}</div>`;
+}
+// 조별리그: 서로 붙은 선수끼리 한 조로 묶는다
+function groupsOf(M) {
+  const par = new Map(), f = x => { while (par.get(x) !== x) { par.set(x, par.get(par.get(x))); x = par.get(x); } return x; };
+  M.forEach(m => [m.a, m.b].forEach(x => par.has(x) || par.set(x, x)));
+  M.forEach(m => par.set(f(m.a), f(m.b)));
+  const gs = new Map();
+  M.forEach(m => { const k = f(m.a); if (!gs.has(k)) gs.set(k, []); gs.get(k).push(m); });
+  return [...gs.values()].sort((x, y) => x[0].d0 - y[0].d0).map((ms, n) => {
+    const t = new Map(), row = i => t.get(i) || (t.set(i, { i, mw: 0, ml: 0, sw: 0, sl: 0 }), t.get(i));
+    ms.forEach(m => { const A = row(m.a), B = row(m.b); A.sw += m.sa; A.sl += m.sb; B.sw += m.sb; B.sl += m.sa;
+      if (m.w === m.a) { A.mw++; B.ml++; } else if (m.w === m.b) { B.mw++; A.ml++; } });
+    return { name: String.fromCharCode(65 + n) + "조", rows: [...t.values()].sort((x, y) => y.mw - x.mw || (y.sw - y.sl) - (x.sw - x.sl) || y.sw - x.sw), ms };
+  });
+}
 function viewLive(n) {
   const L = (D.live || [])[n];
   if (!L) { location.hash = "#/kpl"; return; }
-  const js = []; G.forEach((g, j) => { if (g[9] === L.src) js.push(j); });
+  const fm = L.format || "league", js = []; G.forEach((g, j) => { if (g[9] === L.src) js.push(j); });
   const st = new Map(), add = (i, w) => { const o = st.get(i) || { i, w: 0, l: 0 }; o[w ? "w" : "l"]++; st.set(i, o); };
   js.forEach(j => { add(G[j][3], 1); add(G[j][4], 0); });
   const rank = [...st.values()].sort((a, b) => b.w - a.w || (b.w / (b.w + b.l)) - (a.w / (a.w + a.l)) || P[b.i].r - P[a.i].r);
@@ -477,12 +522,24 @@ function viewLive(n) {
   js.forEach(j => { const g = G[j], a = RN[g[5]], b = RN[g[6]]; if (a && b && a !== b) { const [x, y] = [a, b].sort(); mu[x + y].n++; if (a === x) mu[x + y].w++; }
     if (g[2] >= 0) mp[g[2]] = (mp[g[2]] || 0) + 1; });
   const d0 = js.length ? G[js[0]][0] : null, d1 = js.length ? G[js.at(-1)][0] : null;
+  // 방식별 본문
+  const cut = fm === "group" && L.tourStart ? dateDay(L.tourStart) : null;
+  const jsG = fm === "group" ? js.filter(j => cut == null || G[j][0] < cut) : [], jsT = fm === "tour" ? js : fm === "group" && cut != null ? js.filter(j => G[j][0] >= cut) : [];
+  const groups = fm === "group" ? groupsOf(toMatches(jsG)) : [];
+  const B = jsT.length ? bracket(toMatches(jsT), +L.tourSize || 0) : null;
+  const fmName = { league: "풀리그", group: "조별리그 → 토너먼트", tour: "토너먼트" }[fm];
+  const groupHTML = groups.length ? `<div class="h3">조별리그<em>${groups.length}개 조 · 매치 승수 → 세트 득실 순 · 누르면 그 조 경기</em></div>
+    <div class="grps">${groups.map((g, k) => `<div class="card grp" data-g="${k}"><h3>${g.name}<em>${g.ms.length}매치</em></h3><table class="mini"><tr><th>#</th><th>선수</th><th class="r">매치</th><th class="r">세트</th><th class="r">득실</th></tr>
+      ${g.rows.map((r, q) => `<tr><td class="num">${q + 1}</td><td><b>${esc(P[r.i].id)}</b> ${raceB(P[r.i].race)}</td><td class="r num">${r.mw}-${r.ml}</td><td class="r num">${r.sw}-${r.sl}</td><td class="r num" style="color:${r.sw - r.sl > 0 ? "var(--up)" : r.sw - r.sl < 0 ? "var(--down)" : "var(--ink3)"}">${r.sw - r.sl > 0 ? "+" : ""}${r.sw - r.sl}</td></tr>`).join("")}</table></div>`).join("")}</div>` : "";
+  const tourHTML = B ? `<div class="h3">토너먼트<em>${fm === "group" ? `${esc(L.tourStart)}부터 · ` : ""}매치 = 같은 두 선수의 세트를 묶음</em></div><div class="panel scroll">${bracketHTML(B)}</div>`
+    : fm === "group" ? `<div class="h3">토너먼트</div><div class="empty">${L.tourStart ? "아직 토너먼트 경기가 없습니다" : "운영진이 토너먼트 시작일을 넣으면 대진표가 나옵니다"}</div>` : "";
   let lim = 40;
-  app.innerHTML = `${lgTabs(n)}<div class="kpl-head"><div class="kicker" style="color:#ffb38a">진행 중 리그 · ${esc(L.league)}</div>
+  app.innerHTML = `${lgTabs(n)}<div class="kpl-head"><div class="kicker" style="color:#ffb38a">진행 중 리그 · ${esc(L.league)} · ${fmName}</div>
       <div class="season">${esc(L.name)}</div>
-      <div class="meta"><span>세트 <b>${js.length}</b></span><span>선수 <b>${st.size}</b></span>${d0 != null ? `<span>기간 <b>${fmtD(d0).slice(2)} ~ ${fmtD(d1).slice(5)}</b></span>` : ""}</div>
+      <div class="meta"><span>세트 <b>${js.length}</b></span><span>선수 <b>${st.size}</b></span>${d0 != null ? `<span>기간 <b>${fmtD(d0).slice(2)} ~ ${fmtD(d1).slice(5)}</b></span>` : ""}${B?.champ != null ? `<span>우승 <b style="color:var(--brass1)">${esc(P[B.champ].id)}</b></span>` : ""}</div>
       <div class="wm">LIVE</div></div>
-    ${js.length ? `<div class="h3">개인 순위<em>이 리그 세트 기준 · 승수 순</em></div>
+    ${js.length ? `${fm === "league" ? "" : tourHTML}${groupHTML}
+    <div class="h3">${fm === "league" ? "순위" : "개인 성적"}<em>이 리그 세트 기준 · 승수 순</em></div>
     <div class="panel scroll"><table class="tbl" id="lvr"><thead><tr><th class="r">#</th><th></th><th>선수</th><th class="r">전적</th><th class="r">승률</th><th class="r">ELO</th></tr></thead><tbody>
       ${rank.map((o, k) => { const p = P[o.i]; return `<tr data-k="${esc(p.k)}" ${k >= 30 ? "hidden" : ""}><td class="rk r num ${k < 3 ? "t3" : ""}" style="font-size:22px">${k + 1}</td><td class="stripe" style="--tc:${tc(p.tier)}"></td>
         <td class="nm">${esc(p.id)} ${raceB(p.race)}<span class="sub">${esc(p.tier || "")}</span></td><td class="r num" style="font-size:18px">${o.w}-${o.l}</td>
@@ -496,16 +553,19 @@ function viewLive(n) {
     <div class="panel scroll"><table class="mini" id="lvg"></table></div><button class="more" id="lvm">더 보기</button>`
     : `<div class="empty" style="margin-top:20px">아직 들어온 경기가 없습니다. 다음 아침 갱신 때 시트에서 가져옵니다.</div>`}`;
   if (!js.length) return;
-  const drawG = () => {
-    $("#lvg").innerHTML = `<tr><th>날짜</th><th>승자</th><th></th><th>패자</th><th>맵</th></tr>` + js.slice().reverse().slice(0, lim).map(j => { const g = G[j];
-      return `<tr class="clk" data-a="${esc(P[g[3]].k)}" data-b="${esc(P[g[4]].k)}"><td class="num">${fmtD(g[0]).slice(5)}</td><td><b>${esc(P[g[3]].id)}</b> ${raceB(RN[g[5]])}</td><td style="color:var(--ink3)">승</td><td>${esc(P[g[4]].id)} ${raceB(RN[g[6]])}</td><td style="color:var(--ink3)">${esc(mapN(g))}</td></tr>`; }).join("");
-    $("#lvm").style.display = js.length > lim ? "" : "none";
-  };
+  const rowsOf = list => `<tr><th>날짜</th><th>승자</th><th></th><th>패자</th><th>맵</th></tr>` + list.map(j => { const g = G[j];
+      return `<tr class="clk" data-vs="${esc(P[g[3]].k)}" data-b="${esc(P[g[4]].k)}"><td class="num">${fmtD(g[0]).slice(5)}</td><td><b>${esc(P[g[3]].id)}</b> ${raceB(RN[g[5]])}</td><td style="color:var(--ink3)">승</td><td>${esc(P[g[4]].id)} ${raceB(RN[g[6]])}</td><td style="color:var(--ink3)">${esc(mapN(g))}</td></tr>`; }).join("");
+  const drawG = () => { $("#lvg").innerHTML = rowsOf(js.slice().reverse().slice(0, lim)); $("#lvm").style.display = js.length > lim ? "" : "none"; };
   drawG();
   $("#lvm").onclick = () => { lim += 80; drawG(); };
   if ($("#lvrm")) $("#lvrm").onclick = () => { app.querySelectorAll("#lvr tr[hidden]").forEach(t => t.hidden = false); $("#lvrm").remove(); };
-  $("#lvr tbody").onclick = e => { const k = e.target.closest("tr[data-k]")?.dataset.k; if (k) location.hash = `#/p/${encodeURIComponent(k)}`; };
-  $("#lvg").onclick = e => { const t = e.target.closest("tr[data-a]"); if (t) location.hash = `#/vs/${encodeURIComponent(t.dataset.a)}/${encodeURIComponent(t.dataset.b)}`; };
+  let vsB = null; const goVs = a => location.hash = `#/vs/${encodeURIComponent(a)}/${encodeURIComponent(vsB)}`;
+  app.onclick = e => {
+    const k = e.target.closest("#lvr tr[data-k]")?.dataset.k; if (k) { location.hash = `#/p/${encodeURIComponent(k)}`; return; }
+    const t = e.target.closest("tr[data-vs]"); if (t && t.closest("#lvg")) { vsB = t.dataset.b; goVs(t.dataset.vs); return; }
+    const gp = e.target.closest(".grp[data-g]"); if (gp && !e.target.closest("a")) { const g = groups[+gp.dataset.g];
+      popup(`${esc(L.name)} · ${g.name}`, `${g.ms.length}매치 · ${g.ms.reduce((a, m) => a + m.js.length, 0)}세트`, `<table class="mini">${rowsOf(g.ms.flatMap(m => m.js).sort((x, y) => y - x))}</table>`, null); }
+  };
 }
 function matchRow(m) {
   const hw = m.played && m.hs > m.as, aw = m.played && m.as > m.hs;
@@ -911,7 +971,7 @@ async function adminSources(el, live) {
     if (!st) return `<span class="pill wait">다음 갱신 때 반영 (매일 아침)</span>`;
     return st.ok ? `<span class="pill ok">반영됨 · ${st.games}경기</span>` : `<span class="pill no">문제: ${esc(st.msg || "확인 필요")}</span>`; };
   const all = r.sources || [], list = all.filter(x => (x.stage === "live") === !!live);
-  el.innerHTML = `${live ? `<div class="notice"><b>!</b><div>지금 <b>진행 중인 리그</b>의 시트를 넣는 곳입니다. 넣으면 사이트 <b>리그</b> 화면에 KPL처럼 따로 나오고, 경기는 ELO에도 바로 반영됩니다. 리그가 끝나면 <b>완료</b>를 누르세요 — 리그 화면에서 빠지고 ELO 시트 목록으로 옮겨집니다.</div></div>` : ""}
+  el.innerHTML = `${live ? `<div class="notice"><b>!</b><div>지금 <b>진행 중인 리그</b>의 시트를 넣는 곳입니다. 넣으면 사이트 <b>리그</b> 화면에 KPL처럼 따로 나오고, 경기는 ELO에도 바로 반영됩니다. 리그마다 <b>방식</b>(풀리그 / 조별리그→토너먼트 / 토너먼트)을 고르면 그 방식에 맞는 표·대진표로 보여 줍니다. 리그가 끝나면 <b>완료</b>를 누르세요 — 리그 화면에서 빠지고 ELO 시트 목록으로 옮겨집니다.</div></div>` : ""}
     <div class="card hl"><h3>${live ? "진행 중 리그 시트 추가" : "ELO 시트 추가"}<em>시트 링크를 붙이면 바로 구조를 분석합니다</em></h3>
       <div class="form-grid"><div class="fld wide"><label for="s_url">구글 시트 링크</label><input id="s_url" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"></div></div>
       <div class="btns"><button class="btn pri" id="s_an">시트 분석</button><span class="msg" id="s_msg">시트 공유가 「링크가 있는 모든 사용자 — 뷰어」여야 읽을 수 있습니다.</span></div>
@@ -919,10 +979,18 @@ async function adminSources(el, live) {
     <div class="h3">${live ? "진행 중 리그" : "등록된 ELO 시트"}<em>${list.length}개 · 매일 아침 자동 수집</em></div>
     <div class="panel srcs">${list.map(s => `<div class="src" data-id="${esc(s.id)}"><div><b>${esc(s.name)}</b>
         <div class="meta"><span>리그 <b style="font:inherit;color:var(--ink)">${esc(s.league)}</b> · 가중치 ×${s.weight}</span><span class="selectable">${esc(s.url || s.sheet)}</span>${pill(s)}</div></div>
+        ${live ? `<div class="lfmt"><select class="sel" data-k="format" aria-label="방식">${[["league", "풀리그 (순위표)"], ["group", "조별리그 → 토너먼트"], ["tour", "토너먼트"]].map(([v, l]) => `<option value="${v}" ${(s.format || "league") === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+          <label class="tsw" ${(s.format || "league") === "group" ? "" : "hidden"}>토너먼트 시작일 <input type="date" data-k="tourStart" value="${esc(s.tourStart || "")}"></label>
+          <label class="tsz" ${(s.format || "league") === "league" ? "hidden" : ""}>본선 <select class="sel" data-k="tourSize"><option value="0">자동</option>${[64, 32, 16, 8, 4].map(n => `<option value="${n}" ${+s.tourSize === n ? "selected" : ""}>${n}강</option>`).join("")}</select></label>
+          <button class="btn sm" data-act="fmt">방식 저장</button></div>` : ""}
         <div class="btns" style="margin:0">${live ? `<button class="btn sm pri" data-act="done">완료</button>` : ""}<button class="btn sm" data-act="tog">${s.enabled ? "끄기" : "켜기"}</button><button class="btn sm del" data-act="del">삭제</button></div></div>`).join("") || `<div class="empty">아직 없습니다. 위에서 시트 링크를 넣어 주세요.</div>`}</div>`;
+  el.querySelector(".srcs").onchange = e => { const f = e.target.closest('[data-k="format"]'); if (!f) return; const box = f.closest("[data-id]");
+    box.querySelector(".tsw").hidden = f.value !== "group"; box.querySelector(".tsz").hidden = f.value === "league"; };
   el.querySelector(".srcs").onclick = async e => {
     const b = e.target.closest("[data-act]"); if (!b) return; const id = b.closest("[data-id]").dataset.id; const s = all.find(x => x.id === id);
     if (b.dataset.act === "del") { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 삭제"; return; } await api("/sources/del", { id }); }
+    else if (b.dataset.act === "fmt") { const box = b.closest("[data-id]"), v = k => box.querySelector(`[data-k="${k}"]`).value;
+      await api("/sources/save", { source: { ...s, format: v("format"), tourStart: v("tourStart"), tourSize: +v("tourSize") } }); }
     else if (b.dataset.act === "done") { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "리그 끝남 — 확정"; return; } await api("/sources/save", { source: { ...s, stage: "" } }); }
     else await api("/sources/save", { source: { ...s, enabled: !s.enabled } });
     adminSources(el, live);
