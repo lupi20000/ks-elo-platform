@@ -183,7 +183,13 @@ def parse_form(body):
     if not a or not b or clean_id(a).lower() == clean_id(b).lower():
         return []
     # 결과 칸: 이름·숫자·승패·구분자만 남긴다 (카페가 넣는 보이지 않는 빈칸 문자 등 제거)
-    res = re.sub(r"[^0-9A-Za-z가-힣:;/：_\-\[\]]+", " ", t[rm.end():]).strip()[:120]
+    tail = t[rm.end():]
+    mm = re.search(r"맵\s*[:：]", tail)                  # 결과 다음 줄 '🌍 맵 : 옥타곤 녹아웃 …' (세트 순서)
+    maps = []
+    if mm:
+        maps = [x for x in re.split(r"[\s,/|·>→\-]+", re.sub(r"[^0-9A-Za-z가-힣,/|·\s\-]+", " ", tail[mm.end():].split("\n\n")[0])) if x][:15]
+        tail = tail[:mm.start()]
+    res = re.sub(r"[^0-9A-Za-z가-힣:;/：_\-\[\]]+", " ", tail).strip()[:120]
     ca, cb = clean_id(a).lower(), clean_id(b).lower()
     low = res.lower()
     named = [x for x, c in ((a, ca), (b, cb)) if re.search(rf"(?<![A-Za-z0-9_]){re.escape(c)}(?![A-Za-z0-9_])", low)]
@@ -205,6 +211,8 @@ def parse_form(body):
     m = re.fullmatch(r"([승패]+)\d*", compact)           # '패승승승' = A선수의 세트별 결과
     if m:
         seq = m.group(1)
+        if len(maps) == len(seq):                       # 맵 목록이 세트 수와 맞으면 세트마다 맵을 붙인다
+            return [((a, b) if c == "승" else (b, a)) + (mp, 1) for c, mp in zip(seq, maps)]
         return out(a, b, seq.count("승")) + out(b, a, seq.count("패"))
     m = re.fullmatch(r"(\d+)([승패])", compact)          # '2승' / '1패' = A선수 기준
     if m:
