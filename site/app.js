@@ -366,24 +366,36 @@ function viewPlayer(k) {
     lg: v => [g => g[1] === +v, D.leagues[+v]?.name || ""],
     map: v => [g => g[2] === +v, D.maps[+v] || ""],
   };
-  const drawLog = f => {
-    let list = recent, title = `최근 경기<em>${recent.length}경기</em>`;
-    if (f) { const [t, v] = f.split(":"), [ok, nm] = FL[t](v); list = idxs.filter(j => ok(G[j], G[j][3] === i)).reverse();
-      const w = list.filter(j => G[j][3] === i).length;
-      title = `${esc(nm)}<em>${list.length}경기 · ${w}승 ${list.length - w}패 · ${pctS(w, list.length)} <button class="btn sm" data-f="">✕ 최근 경기로</button></em>`; }
-    $("#glog").innerHTML = `<h3>${title}</h3><div class="scroll" style="${f ? "max-height:560px;overflow:auto" : ""}"><table class="mini">
+  const logTable = list => `<table class="mini">
       <tr><th></th><th>날짜</th><th>리그</th><th>상대</th><th>맵</th></tr>
       ${list.map(j => { const g = G[j], win = g[3] === i, o = win ? g[4] : g[3];
         return `<tr class="clk" data-vs="${esc(P[o].k)}"><td><span class="res ${win ? "W" : "L"}">${win ? "W" : "L"}</span></td><td class="num">${fmtD(g[0])}</td>
         <td>${esc(D.leagues[g[1]].name)}</td><td>${esc(P[o].id)} ${raceB(RN[win ? g[6] : g[5]])}</td><td style="color:var(--ink3)">${esc(mapN(g))}</td></tr>`; }).join("") || `<tr><td colspan=5 class="empty">경기가 없습니다</td></tr>`}
-    </table></div>`;
-  };
-  drawLog("");
+    </table>`;
+  $("#glog").innerHTML = `<h3>최근 경기<em>${recent.length}경기</em></h3><div class="scroll">${logTable(recent)}</div>`;
+  const goVs = v => location.hash = `#/vs/${encodeURIComponent(p.k)}/${encodeURIComponent(v)}`;
   app.onclick = e => {
     const f = e.target.closest("[data-f]");
-    if (f) { drawLog(f.dataset.f); if (f.dataset.f) $("#glog").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
-    const v = e.target.closest("[data-vs]")?.dataset.vs; if (v) location.hash = `#/vs/${encodeURIComponent(p.k)}/${encodeURIComponent(v)}`; };
+    if (f) { // 그 자리에서 팝업으로 해당 경기 목록
+      const [t, v] = f.dataset.f.split(":"), [ok, nm] = FL[t](v), list = idxs.filter(j => ok(G[j], G[j][3] === i)).reverse(), w = list.filter(j => G[j][3] === i).length;
+      popup(`${esc(p.id)} · ${esc(nm)}`, `${list.length}경기 · ${w}승 ${list.length - w}패 · ${pctS(w, list.length)}`, logTable(list), goVs);
+      return; }
+    const v = e.target.closest("[data-vs]")?.dataset.vs; if (v) goVs(v); };
   $("#pin").onclick = () => { const on = ME.get() === p.k; ME.set(on ? "" : p.k); $("#pin").textContent = on ? "☆ 내 아이디로 고정" : "★ 내 아이디로 고정됨"; };
+}
+
+/* ---------- 팝업 (그 자리에서 열고 닫기) ---------- */
+function popup(title, sub, body, onVs) {
+  document.querySelector(".pop")?.remove();
+  const el = document.createElement("div");
+  el.className = "pop";
+  el.innerHTML = `<div class="pbox" role="dialog" aria-modal="true"><div class="phd"><div><b>${title}</b><span>${sub}</span></div><button class="btn sm" data-x="1" aria-label="닫기">✕</button></div><div class="pbd">${body}</div></div>`;
+  const close = () => { el.remove(); document.removeEventListener("keydown", key); window.removeEventListener("hashchange", close); document.body.classList.remove("noscroll"); };
+  const key = e => { if (e.key === "Escape") close(); };
+  el.onclick = e => { if (e.target === el || e.target.closest("[data-x]")) return close();
+    const v = e.target.closest("[data-vs]")?.dataset.vs; if (v && onVs) { close(); onVs(v); } };
+  document.addEventListener("keydown", key); window.addEventListener("hashchange", close);
+  document.body.appendChild(el); document.body.classList.add("noscroll");
 }
 
 /* ---------- KPL ---------- */

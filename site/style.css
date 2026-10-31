@@ -658,3 +658,13 @@ textarea.out{width:100%;min-height:240px;background:var(--field);border:1px soli
 #glog{scroll-margin-top:80px}#glog h3 em .btn{margin-left:8px}
 .seg a{background:var(--field);border-right:1px solid var(--rule2);padding:9px 16px;font:700 13px var(--body);color:var(--ink2);white-space:nowrap;text-decoration:none}
 .seg a:last-child{border-right:0}.seg a:hover{color:var(--ink)}.seg a.on{background:var(--brass);color:var(--acc-ink)}
+/* 팝업 */
+.pop{position:fixed;inset:0;z-index:200;background:rgba(20,16,24,.45);display:flex;align-items:center;justify-content:center;padding:16px;animation:popIn .18s ease-out}
+.pop .pbox{background:var(--slab);border:1px solid var(--rule2);box-shadow:0 20px 60px rgba(0,0,0,.35);width:min(760px,100%);max-height:min(82vh,820px);display:flex;flex-direction:column}
+.pop .phd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px 12px;border-bottom:1px solid var(--rule2)}
+.pop .phd b{display:block;font:800 18px var(--disp);letter-spacing:.04em;color:var(--ink)}
+.pop .phd span{display:block;margin-top:4px;font:500 12.5px var(--body);color:var(--ink2)}
+.pop .pbd{overflow:auto;padding:4px 18px 16px;-webkit-overflow-scrolling:touch}
+body.noscroll{overflow:hidden}
+@keyframes popIn{from{opacity:0}to{opacity:1}}
+@media(max-width:640px){.pop{align-items:flex-end;padding:0}.pop .pbox{max-height:86vh;width:100%}}
