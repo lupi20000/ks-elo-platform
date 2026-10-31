@@ -1,0 +1,15 @@
+name: 카페 수집 점검 (일회용)
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: |
+          KV_NS=$(bash tools/kvns.sh) bash -c 'KV_NS=$KV_NS bash tools/kv.sh get "elo:cafeposts" /tmp/cp.json'
+          python tools/cafe_probe.py /tmp/cp.json
