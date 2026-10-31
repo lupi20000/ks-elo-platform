@@ -503,14 +503,40 @@ def build_kpl(sched, results, kroster, kranking, kfor):
             "standings": standings, "teams": team_list, "ranking": ranking, "matches": matches}
 
 
+def _days(a, b):
+    """두 날짜(date 또는 'YYYY-MM-DD') 사이 일수"""
+    f = lambda x: x if isinstance(x, dt.date) else dt.date.fromisoformat(str(x)[:10])
+    return (f(a) - f(b)).days
+
+
 def merge_dedup(games, new, label, loose=False):
     """
     새 출처 세트를 넣되, 같은 (날짜·리그·맵·승·패) 묶음은 출처 중 많은 쪽만 인정(옮겨 적은 중복 방지)
     loose=True(카페): 맵·리그를 안 적는 경우가 많아 (날짜·승·패)만 같아도 같은 경기로 본다
     """
+    if loose:
+        # 카페 글은 경기 다음 날 올리기도 하고, 같은 경기가 시트에도 옮겨 적힌다 →
+        # 같은 승자·패자 경기가 앞뒤 3일 안에 이미 있으면 그 한 판과 짝지어 중복으로 본다(한 판은 한 번만 짝지음)
+        pool = defaultdict(list)
+        for g in games:
+            pool[(resolve(g["w"]), resolve(g["l"]))].append(g["d"])
+        added = 0
+        for g in new:
+            ds = pool.get((resolve(g["w"]), resolve(g["l"])))
+            hit = None
+            if ds:
+                near = [(abs(_days(d, g["d"])), n) for n, d in enumerate(ds) if abs(_days(d, g["d"])) <= 3]
+                if near:
+                    hit = min(near)[1]
+            if hit is not None:
+                ds.pop(hit)
+                ISSUES["dup_cross_source"].append(f"{label} {g['d']} {g['w']}>{g['l']}")
+            else:
+                games.append(g)
+                added += 1
+        return added
+
     def key(g):
-        if loose:
-            return (g["d"], resolve(g["w"]), resolve(g["l"]))
         return (g["d"], g["lg"], g["map"], resolve(g["w"]), resolve(g["l"]))
     have = Counter(key(g) for g in games)
     newc, added = Counter(), 0
