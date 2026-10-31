@@ -22,6 +22,7 @@ for aid, v in sorted(P.items(), key=lambda x: -int(x[0])):
         if len(labs) >= 2 and rm:
             a = cafe._player(t[labs[0].end():labs[1].start()]); b = cafe._player(t[labs[1].end():rm.start()])
             raw = lambda x: " ".join(f"U+{ord(c):04X}" if not c.isalnum() and not c.isspace() and ord(c) > 127 else ("A" if c.isascii() and c.isalpha() else c) for c in x)
+            print("   결과칸:", repr(raw(t[rm.end():])[:120]), "| 칸수", len(labs), "| parse_form:", cafe.parse_form(v.get("b") or "") != [])
             print("   진단: A선수", bool(a), repr(raw(t[labs[0].end():labs[1].start()])[:80]), "| B선수", bool(b), repr(raw(t[labs[1].end():rm.start()])[:80]))
         else:
             print("   진단: 칸 찾기 실패", len(labs), bool(rm))
