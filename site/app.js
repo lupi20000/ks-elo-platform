@@ -968,15 +968,15 @@ async function api(path, body) {
 }
 async function viewAdmin(tab) {
   if (!TOK.get() || !(await api("/me")).ok) return adminGate();
-  tab = tab || "src";
-  const tabs = { src: "ELO 시트 등록", league: "리그 시트 등록", games: "ELO 입력값", promo: "등급조정", lad: "래더 관리", health: "데이터" };
+  tab = tab === "src" ? "health" : tab || "league";      // 예전 'ELO 시트 등록' 주소는 데이터 탭으로
+  const tabs = { league: "리그 시트 등록", games: "ELO 입력값", promo: "등급조정", lad: "래더 관리", health: "데이터" };
   app.innerHTML = `<div class="h"><h2><small>운영진 전용 · 이 화면의 내용은 공개 화면에 나오지 않습니다</small><span class="gold">운영진</span> <span class="kr">관리</span></h2>
     <div class="aside"><button class="btn sm" id="logout">로그아웃</button></div></div>
     ${D.meta.gaps.length ? `<div class="notice red"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}
     <div class="seg">${Object.entries(tabs).map(([k, v]) => `<button class="${k === tab ? "on" : ""}" data-tab="${k}">${v}</button>`).join("")}</div><div id="av"></div>`;
   $(".seg").onclick = e => { const t = e.target.dataset.tab; if (t) location.hash = `#/admin/${t}`; };
   $("#logout").onclick = async () => { await api("/logout", {}); TOK.clear(); location.hash = "#/"; };
-  ({ src: el => adminSources(el, false), league: el => adminSources(el, true), games: adminGames, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || (el => adminSources(el, false)))($("#av"));
+  ({ league: el => adminSources(el, true), games: adminGames, promo: adminPromo, lad: adminLadder, health: adminHealth }[tab] || (el => adminSources(el, true)))($("#av"));
 }
 function adminGate() {
   app.innerHTML = `<div class="gate"><div class="kicker">ADMIN</div><h2>운영진</h2><p>관리자 아이디와 비밀번호를 넣어 주세요.</p>
@@ -1002,12 +1002,12 @@ async function adminSources(el, live) {
     if (!st) return `<span class="pill wait">다음 갱신 때 반영 (매일 아침)</span>`;
     return st.ok ? `<span class="pill ok">반영됨 · ${st.games}경기</span>` : `<span class="pill no">문제: ${esc(st.msg || "확인 필요")}</span>`; };
   const all = r.sources || [], list = all.filter(x => (x.stage === "live") === !!live);
-  el.innerHTML = `${live ? `<div class="notice"><b>!</b><div>지금 <b>진행 중인 리그</b>의 시트를 넣는 곳입니다. 넣으면 사이트 <b>리그</b> 화면에 KPL처럼 따로 나오고, 경기는 ELO에도 바로 반영됩니다. 리그마다 <b>방식</b>(풀리그 / 조별리그→토너먼트 / 토너먼트 / 시트 대진표 그대로)을 고르면 그 방식에 맞는 표·대진표로 보여 줍니다. 더블 엘리미네이션처럼 시트에 대진표가 이미 그려져 있으면 <b>시트 대진표 그대로</b>를 고르고 그 탭 주소를 넣으세요. 리그가 끝나면 <b>완료</b>를 누르세요 — 리그 화면에서 빠지고 ELO 시트 목록으로 옮겨집니다.</div></div>` : ""}
-    <div class="card hl"><h3>${live ? "진행 중 리그 시트 추가" : "ELO 시트 추가"}<em>시트 링크를 붙이면 바로 구조를 분석합니다</em></h3>
+  el.innerHTML = `${live ? `<div class="notice"><b>!</b><div>지금 <b>진행 중인 리그</b>의 시트를 넣는 곳입니다. 넣으면 사이트 <b>리그</b> 화면에 KPL처럼 따로 나오고, 경기는 ELO에도 바로 반영됩니다. 리그마다 <b>방식</b>(풀리그 / 조별리그→토너먼트 / 토너먼트 / 시트 대진표 그대로)을 고르면 그 방식에 맞는 표·대진표로 보여 줍니다. 더블 엘리미네이션처럼 시트에 대진표가 이미 그려져 있으면 <b>시트 대진표 그대로</b>를 고르고 그 탭 주소를 넣으세요. 리그가 끝나면 <b>완료</b>를 누르세요 — 리그 화면에서 빠지고 <b>데이터</b> 탭의 지난 시트 목록으로 옮겨집니다.</div></div>` : ""}
+    <div class="card hl"><h3>${live ? "진행 중 리그 시트 추가" : "지난 시트 추가"}<em>시트 링크를 붙이면 바로 구조를 분석합니다</em></h3>
       <div class="form-grid"><div class="fld wide"><label for="s_url">구글 시트 링크</label><input id="s_url" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"></div></div>
       <div class="btns"><button class="btn pri" id="s_an">시트 분석</button><span class="msg" id="s_msg">시트 공유가 「링크가 있는 모든 사용자 — 뷰어」여야 읽을 수 있습니다.</span></div>
       <div id="s_res"></div></div>
-    <div class="h3">${live ? "진행 중 리그" : "등록된 ELO 시트"}<em>${list.length}개 · 매일 아침 자동 수집</em></div>
+    <div class="h3">${live ? "진행 중 리그" : "등록된 지난 시트"}<em>${list.length}개 · 매일 아침 자동 수집</em></div>
     <div class="panel srcs">${list.map(s => `<div class="src" data-id="${esc(s.id)}"><div><b>${esc(s.name)}</b>
         <div class="meta"><span>리그 <b style="font:inherit;color:var(--ink)">${esc(s.league)}</b> · 가중치 ×${s.weight}</span><span class="selectable">${esc(s.url || s.sheet)}</span>${pill(s)}</div></div>
         ${live ? `<div class="lfmt"><select class="sel" data-k="format" aria-label="방식">${[["league", "풀리그 (순위표)"], ["group", "조별리그 → 토너먼트"], ["tour", "토너먼트"], ["sheet", "시트 대진표 그대로 (더블 엘리미네이션 등)"]].map(([v, l]) => `<option value="${v}" ${(s.format || "league") === v ? "selected" : ""}>${l}</option>`).join("")}</select>
@@ -1246,7 +1246,9 @@ async function adminHealth(el) {
         return `<tr><td class="num">${esc((u.date || "").slice(5).replace("-", "."))}</td><td><a href="${url}" target="_blank" rel="noopener">${/^vs\b/i.test(t) ? `<b>${esc(w || "?")}</b> ${esc(t)}` : `${esc(t)} <span style="color:var(--ink3)">· 글쓴이 ${esc(w || "?")}</span>`}</a></td></tr>`; }).join("")}</table>` : ""}` : `<p class="msg">아직 수집한 적이 없습니다.</p>`}</div>`;
   el.innerHTML = `<div class="h3" style="margin-top:0">출처별 상태</div><div class="panel scroll"><table class="tbl"><thead><tr><th>출처</th><th>상태</th><th class="r">행</th></tr></thead><tbody>
     ${D.meta.sources.map(s => `<tr class="static"><td>${esc(s.label)}</td><td style="color:${/불가|실패/.test(s.status) ? "var(--down)" : "var(--ink2)"}">${esc(s.status)}</td><td class="r num" style="font-size:16px">${s.rows}</td></tr>`).join("")}</tbody></table></div>
-    ${D.meta.gaps.length ? `<div class="notice red" style="margin-top:12px"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}${cafe}`;
+    ${D.meta.gaps.length ? `<div class="notice red" style="margin-top:12px"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}${cafe}
+    <div class="h3">지난 리그 · ELO 시트<em>끝난 리그 시트를 넣는 곳 · 리그 시트 등록에서 '완료'를 누른 시트도 여기로 옵니다</em></div><div id="oldsrc"></div>`;
+  adminSources($("#oldsrc"), false);
 }
 
 const LEAGUES = () => ["ELO", ...D.leagues.map(l => l.name).filter(n => n !== "ELO"), "KTL"].filter((x, i, a) => a.indexOf(x) === i);
