@@ -390,6 +390,20 @@ export default {
       return 답({ ok: true, list: L });
     }
 
+    // 바로 반영 — 깃허브 '매일 데이터 갱신'을 빠른 모드로 돌린다 (GH_TOKEN 이 있을 때만)
+    if (길 === '/rebuild') {
+      if (!env.GH_TOKEN) return 답({ ok: false, off: true, msg: '바로 반영이 아직 꺼져 있습니다 (깃허브 열쇠 필요). 순위는 다음 아침 갱신 때 반영됩니다.' });
+      const gh = (u, o = {}) => fetch('https://api.github.com/repos/lupi20000/ks-elo-platform/actions/' + u, { ...o,
+        headers: { authorization: 'Bearer ' + env.GH_TOKEN, accept: 'application/vnd.github+json', 'user-agent': 'ks-elo-api', 'content-type': 'application/json' } });
+      const last = async () => { const r = await gh('workflows/daily.yml/runs?per_page=1'); const j = await r.json().catch(() => ({})); const x = (j.workflow_runs || [])[0];
+        return x ? { status: x.status, conclusion: x.conclusion, created: x.created_at, updated: x.updated_at, quick: /빠른|workflow_dispatch/.test(x.event + (x.display_title || '')) } : null; };
+      if (req.method === 'GET') return 답({ ok: true, run: await last() });
+      // 이미 도는 중이어도 새로 넣는다 — 깃허브가 앞의 것이 끝난 뒤 이어서 돌린다(방금 바꾼 내용까지 반영)
+      const r = await gh('workflows/daily.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { quick: true } }) });
+      if (r.status !== 204) return 답({ ok: false, msg: '깃허브가 거절했습니다 (' + r.status + '). 깃허브 열쇠 권한을 확인해 주세요.' });
+      return 답({ ok: true, started: Date.now(), msg: '반영을 시작했습니다. 3~5분쯤 걸립니다.' });
+    }
+
     // 래더 관리 — 요청 목록·추가/빼기·지난 갱신 결과
     if (길 === '/ladder' && req.method === 'GET') {
       return 답({ ok: true, ops: await 읽기(env, 'elo:ladops', []), reqs: await 읽기(env, 'elo:ladreq', []), stat: await 읽기(env, 'elo:ladstat', {}) });

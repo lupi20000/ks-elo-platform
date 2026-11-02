@@ -3,6 +3,11 @@ name: 매일 데이터 갱신
 # 05:37 은 예비 실행: 오늘 이미 갱신됐으면 아무것도 안 한다.
 on:
   workflow_dispatch:
+    inputs:
+      quick:
+        description: '빠른 갱신 (래더는 아침에 모은 것을 그대로 씀 · 운영진 화면 [적용]이 누름)'
+        type: boolean
+        default: false
   schedule:
     - cron: '7 20 * * *'
     - cron: '37 20 * * *'
@@ -69,8 +74,15 @@ jobs:
           get "elo:ladreq" tools/_ladreq.json '[]'
           get "elo:ladops" tools/_ladops.json '[]'
 
+      - name: 래더 지난 결과 받기 (빠른 갱신)
+        if: steps.check.outputs.skip != 'true' && inputs.quick && env.CLOUDFLARE_API_TOKEN != ''
+        continue-on-error: true
+        run: |
+          mkdir -p out
+          bash tools/kv.sh get "elo:ladder" out/ladder.json && echo "아침 래더 결과 사용" || rm -f out/ladder.json
+
       - name: 래더 모으기 (cwal.gg, 10분 남짓)
-        if: steps.check.outputs.skip != 'true'
+        if: steps.check.outputs.skip != 'true' && !inputs.quick
         continue-on-error: true
         timeout-minutes: 40
         env:
@@ -101,7 +113,10 @@ jobs:
         continue-on-error: true
         run: |
           bash tools/kv.sh put "elo:srcstat" out/srcstat.json && echo "elo:srcstat 올림"
-          if [ -f out/ladder_report.json ]; then bash tools/kv.sh put "elo:ladstat" out/ladder_report.json && echo "elo:ladstat 올림"; fi
+          if [ "${{ inputs.quick }}" != "true" ]; then
+            if [ -f out/ladder_report.json ]; then bash tools/kv.sh put "elo:ladstat" out/ladder_report.json && echo "elo:ladstat 올림"; fi
+            if [ -f out/ladder.json ]; then bash tools/kv.sh put "elo:ladder" out/ladder.json && echo "elo:ladder 올림 (빠른 갱신용)"; fi
+          fi
 
       - name: 커밋·푸시
         id: commit
@@ -113,7 +128,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "바뀐 것 없음"; echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          git commit -q -m "데이터 자동 갱신 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') KST"
+          git commit -q -m "데이터 $([ "${{ inputs.quick }}" = "true" ] && echo '빠른 ' || echo '자동 ')갱신 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') KST"
           for i in 1 2 3 4 5; do
             if git push; then echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
             echo "푸시 실패 → 최신 받아서 다시 ($i)"; sleep $((i * 5))

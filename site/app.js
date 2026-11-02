@@ -992,8 +992,28 @@ function adminGate() {
   $("#go").onclick = go; $("#pw").onkeydown = e => e.key === "Enter" && go();
 }
 const COLS = [["date", "날짜"], ["winner", "승자"], ["loser", "패자"], ["map", "맵"], ["league", "리그(열)"], ["wrace", "승자 종족"], ["lrace", "패자 종족"], ["year", "연"], ["month", "월"], ["day", "일"]];
+// 바로 반영: 깃허브 빠른 갱신을 돌리고 끝날 때까지 상황을 보여 준다 (msgEl 에 표시)
+async function rebuildNow(msgEl, head = "") {
+  const say = (cls, html) => { if (msgEl.isConnected) { msgEl.className = cls; msgEl.innerHTML = (head ? esc(head) + " · " : "") + html; } };
+  const r = await api("/rebuild", {});
+  if (!r.ok) return say(r.off ? "msg" : "msg no", esc(r.msg || "반영을 시작하지 못했습니다."));
+  const t0 = Date.now(); say("msg", `<span class="spin"></span> 순위에 반영하는 중… (3~5분)`);
+  const tick = async () => {
+    if (!msgEl.isConnected) return;
+    const s = await api("/rebuild"), run = s.run;
+    const mine = run && Date.parse(run.created) >= t0 - 90e3;
+    if (mine && run.status === "completed") {
+      if (run.conclusion === "success") return say("msg ok", `✔ 반영 완료 — <a href="#" onclick="location.reload();return false">새로고침</a>하면 바뀐 순위가 보입니다`);
+      return say("msg no", `반영 중 문제가 생겼습니다 (${esc(run.conclusion || "")}). 데이터 탭에서 상태를 확인해 주세요.`);
+    }
+    const m = Math.floor((Date.now() - t0) / 60000);
+    say("msg", `<span class="spin"></span> 순위에 반영하는 중… ${m ? m + "분 지남" : "(3~5분)"}`);
+    if (Date.now() - t0 < 20 * 60e3) setTimeout(tick, 15000);
+  };
+  setTimeout(tick, 12000);
+}
 // live=false: ELO 데이터 시트 · live=true: 진행 중 리그 시트(사이트 '리그' 화면에 따로 나옴, 완료 → ELO 시트로 이동)
-async function adminSources(el, live, flash) {
+async function adminSources(el, live, flash, go) {
   el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
   const r = await api("/sources");
   if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
@@ -1016,6 +1036,7 @@ async function adminSources(el, live, flash) {
           <label class="tbu" ${s.format === "sheet" ? "" : "hidden"}>대진표 탭 링크 <input data-k="boardUrl" value="${esc(s.boardUrl || "")}" placeholder="시트에서 대진표 탭을 연 주소 (#gid=… 포함)"></label>
           <button class="btn sm" data-act="fmt">방식 저장</button></div>` : ""}
         <div class="btns" style="margin:0">${live ? `<button class="btn sm pri" data-act="done">완료</button>` : ""}<button class="btn sm" data-act="tog">${s.enabled ? "끄기" : "켜기"}</button><button class="btn sm del" data-act="del">삭제</button></div></div>`).join("") || `<div class="empty">아직 없습니다. 위에서 시트 링크를 넣어 주세요.</div>`}</div>`;
+  if (go) rebuildNow($("#s_msg"), flash);
   el.querySelector(".srcs").onchange = e => { const f = e.target.closest('[data-k="format"]'); if (!f) return; const box = f.closest("[data-id]");
     box.querySelector(".tsw").hidden = f.value !== "group"; box.querySelector(".tsz").hidden = !["group", "tour"].includes(f.value); box.querySelector(".tbu").hidden = f.value !== "sheet"; };
   el.querySelector(".srcs").onclick = async e => {
@@ -1025,7 +1046,7 @@ async function adminSources(el, live, flash) {
       await api("/sources/save", { source: { ...s, format: v("format"), tourStart: v("tourStart"), tourSize: +v("tourSize"), boardUrl: v("boardUrl").trim() } }); }
     else if (b.dataset.act === "done") { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "리그 끝남 — 확정"; return; } await api("/sources/save", { source: { ...s, stage: "" } }); }
     else await api("/sources/save", { source: { ...s, enabled: !s.enabled } });
-    adminSources(el, live);
+    adminSources(el, live, { del: "삭제했습니다", done: "리그를 완료 처리했습니다", fmt: "방식을 저장했습니다", tog: s.enabled ? "껐습니다" : "켰습니다" }[b.dataset.act], true);
   };
   $("#s_an").onclick = async () => {
     const url = $("#s_url").value.trim(); if (!url) return;
@@ -1036,7 +1057,7 @@ async function adminSources(el, live, flash) {
     const good = a.tabs.filter(t => t.ok);
     $("#s_msg").className = good.length ? "msg ok" : "msg no";
     $("#s_msg").textContent = good.length ? `분석 완료: 경기 기록으로 보이는 탭 ${good.length}개를 찾았습니다.` : "경기 기록 형식을 자동으로 못 찾았습니다. 아래에서 열을 직접 골라 주세요.";
-    sourceEditor($("#s_res"), a, url, m => adminSources(el, live, m), live ? "live" : "");
+    sourceEditor($("#s_res"), a, url, (m, go) => adminSources(el, live, m, go), live ? "live" : "");
   };
 }
 function sourceEditor(box, a, url, done, stage = "") {
@@ -1076,7 +1097,7 @@ function sourceEditor(box, a, url, done, stage = "") {
       const p = await api("/sources/preview", { sheet: a.sheet, gid: cur.gid, mapping: mp2 });
       if (!p.ok || !p.games) { $("#e_save").disabled = false; $("#e_msg").className = "msg no"; $("#e_msg").textContent = p.ok ? "경기를 하나도 못 읽었습니다. 열 지정을 확인해 주세요." : p.msg; if (p.ok) $("#e_sample").innerHTML = sampleTable(p.sample); return; }
       const s = await api("/sources/save", { source: { name: $("#e_name").value.trim(), league: lg, weight: +$("#e_w").value || 1, url, sheet: a.sheet, gid: cur.gid, mapping: mp2, enabled: true, stage } });
-      if (s.ok) done(`수집 완료 · ${$("#e_name").value.trim() || "시트"} ${p.games}경기 확인 — 순위에는 다음 아침 갱신 때 반영됩니다`);
+      if (s.ok) done(`수집 완료 · ${$("#e_name").value.trim() || "시트"} ${p.games}경기 확인`, true);
       else { $("#e_save").disabled = false; $("#e_msg").className = "msg no"; $("#e_msg").textContent = s.msg; }
     };
   };
@@ -1248,11 +1269,14 @@ async function adminHealth(el) {
       ${st.unparsed?.length ? `<p class="msg">형식을 못 읽은 글 ${Math.max(st.skipped || 0, st.unparsed.length)}개${(st.skipped || 0) > st.unparsed.length ? ` 중 최근 ${st.unparsed.length}개` : ""} (줄을 누르면 카페 글이 열립니다)</p><table class="mini cafeun"><tr><th>날짜</th><th>경기 (글쓴이 vs 상대)</th></tr>${st.unparsed.map(u => {
         const t = String(u.title || "").trim(), w = String(u.writer || "").trim(), url = `https://cafe.naver.com/ca-fe/cafes/${encodeURIComponent(c.clubid || "30800617")}/articles/${encodeURIComponent(u.articleId)}`;
         return `<tr><td class="num">${esc((u.date || "").slice(5).replace("-", "."))}</td><td><a href="${url}" target="_blank" rel="noopener">${/^vs\b/i.test(t) ? `<b>${esc(w || "?")}</b> ${esc(t)}` : `${esc(t)} <span style="color:var(--ink3)">· 글쓴이 ${esc(w || "?")}</span>`}</a></td></tr>`; }).join("")}</table>` : ""}` : `<p class="msg">아직 수집한 적이 없습니다.</p>`}</div>`;
-  el.innerHTML = `<div class="h3" style="margin-top:0">출처별 상태</div><div class="panel scroll"><table class="tbl"><thead><tr><th>출처</th><th>상태</th><th class="r">행</th></tr></thead><tbody>
+  el.innerHTML = `<div class="card hl" style="margin-bottom:12px"><h3>지금 다시 계산<em>매일 아침 자동 · 급할 때만 누르세요</em></h3>
+      <div class="btns" style="margin:0"><button class="btn pri" id="rb">순위 바로 다시 계산</button><span class="msg" id="rbm">시트·카페·경기 수정 내용을 지금 순위에 반영합니다 (래더 점수는 아침 것 그대로)</span></div></div>
+    <div class="h3" style="margin-top:0">출처별 상태</div><div class="panel scroll"><table class="tbl"><thead><tr><th>출처</th><th>상태</th><th class="r">행</th></tr></thead><tbody>
     ${D.meta.sources.map(s => `<tr class="static"><td>${esc(s.label)}</td><td style="color:${/불가|실패/.test(s.status) ? "var(--down)" : "var(--ink2)"}">${esc(s.status)}</td><td class="r num" style="font-size:16px">${s.rows}</td></tr>`).join("")}</tbody></table></div>
     ${D.meta.gaps.length ? `<div class="notice red" style="margin-top:12px"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}${cafe}
     <div class="h3">지난 리그 · ELO 시트<em>끝난 리그 시트를 넣는 곳 · 리그 시트 등록에서 '완료'를 누른 시트도 여기로 옵니다</em></div><div id="oldsrc"></div>`;
   adminSources($("#oldsrc"), false);
+  $("#rb").onclick = () => { $("#rb").disabled = true; rebuildNow($("#rbm")); };
 }
 
 const LEAGUES = () => ["ELO", ...D.leagues.map(l => l.name).filter(n => n !== "ELO"), "KTL"].filter((x, i, a) => a.indexOf(x) === i);
@@ -1272,7 +1296,7 @@ const readForm = el => { const o = {}; el.querySelectorAll("[data-f]").forEach(x
 const validGame = o => !/^[A-Za-z0-9_.\-]{2,30}$/.test(o.winner) || !/^[A-Za-z0-9_.\-]{2,30}$/.test(o.loser) ? "아이디는 영어·숫자로만" : o.winner.toLowerCase() === o.loser.toLowerCase() ? "승자와 패자가 같습니다" : !o.date ? "날짜를 넣어 주세요" : "";
 // ELO 입력값: 들어온 모든 경기를 최근 순으로, 년·월 필터 · 줄마다 수정/삭제 (다음 갱신 때 반영)
 const AG = { ym: "", lg: "", q: "" };
-async function adminGames(el) {
+async function adminGames(el, flash) {
   el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
   const r = await api("/fix");
   if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
@@ -1280,7 +1304,8 @@ async function adminGames(el) {
   const yms = [...new Set(G.map(g => isoD(g[0]).slice(0, 7)))].sort().reverse();
   if (!AG.ym || !yms.includes(AG.ym)) AG.ym = yms[0] || "";
   const years = [...new Set(yms.map(x => x.slice(0, 4)))];
-  el.innerHTML = `<div class="notice"><b>!</b><div>들어온 모든 경기(시트·카페 어디서 왔든)입니다. 잘못된 경기는 <b>수정</b>·<b>삭제</b>하세요. <b>다음 아침 갱신 때</b> 순위가 다시 계산됩니다.</div></div>
+  el.innerHTML = `<div class="notice"><b>!</b><div>들어온 모든 경기(시트·카페 어디서 왔든)입니다. 잘못된 경기는 <b>수정</b>·<b>삭제</b>하세요. 고치면 바로 순위에 반영됩니다(3~5분).</div></div>
+    ${flash ? `<p class="msg ok" id="g_flash"></p>` : ""}
     <div class="bar" style="flex-wrap:wrap;gap:8px">
       <select class="sel" id="g_y" aria-label="년">${years.map(y => `<option ${AG.ym.startsWith(y) ? "selected" : ""}>${y}</option>`).join("")}<option value="all">전체 기간</option></select>
       <select class="sel" id="g_m" aria-label="월"></select>
@@ -1314,20 +1339,21 @@ async function adminGames(el) {
     $("#g_more").style.display = js.length > lim ? "" : "none";
   };
   months(); draw();
+  if (flash) rebuildNow($("#g_flash"), flash);
   $("#g_y").onchange = () => { lim = 200; AG.ym = $("#g_y").value === "all" ? "" : (yms.find(x => x.startsWith($("#g_y").value)) || ""); months(); draw(); };
   $("#g_m").onchange = $("#g_l").onchange = () => { lim = 200; draw(); };
   $("#g_q").oninput = () => { lim = 200; draw(); };
   $("#g_more").onclick = () => { lim += 300; draw(); };
   el.onclick = async e => {
-    const u = e.target.closest("[data-undo]"); if (u) { await api("/fix/del", { sig: u.dataset.undo }); return adminGames(el); }
+    const u = e.target.closest("[data-undo]"); if (u) { await api("/fix/del", { sig: u.dataset.undo }); return adminGames(el, "되돌렸습니다"); }
     const row = e.target.closest("tr[data-j]") || e.target.closest("tr.ed")?.previousElementSibling; if (!row || !row.dataset.j) return;
     const g = G[+row.dataset.j], ed = row.nextElementSibling, sg = sig(g);
     if (e.target.closest("[data-del]")) { const b = e.target.closest("[data-del]"); if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 삭제"; return; }
-      const s2 = await api("/fix/save", { sig: sg, act: "del", view: view(g) }); if (s2.ok) adminGames(el); return; }
+      const s2 = await api("/fix/save", { sig: sg, act: "del", view: view(g) }); if (s2.ok) adminGames(el, "삭제했습니다"); return; }
     if (e.target.closest("[data-edit]")) { ed.hidden = false; ed.firstElementChild.innerHTML = gameForm({ date: isoD(g[0]), league: D.leagues[g[1]].name, map: g[2] >= 0 ? D.maps[g[2]] : "", winner: P[g[3]].id, loser: P[g[4]].id, wrace: RN[g[5]] || "", lrace: RN[g[6]] || "" }); return; }
     if (e.target.closest("[data-cancel]")) { ed.hidden = true; return; }
     if (e.target.closest("[data-save]")) { const o = readForm(ed), bad = validGame(o); if (bad) { ed.querySelector(".gm").className = "msg no gm"; ed.querySelector(".gm").textContent = bad; return; }
-      const s2 = await api("/fix/save", { sig: sg, act: "edit", data: o, view: view(g) }); if (s2.ok) adminGames(el); else ed.querySelector(".gm").textContent = s2.msg; }
+      const s2 = await api("/fix/save", { sig: sg, act: "edit", data: o, view: view(g) }); if (s2.ok) adminGames(el, "고쳤습니다"); else ed.querySelector(".gm").textContent = s2.msg; }
   };
 }
 

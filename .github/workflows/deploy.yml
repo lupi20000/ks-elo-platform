@@ -3,6 +3,8 @@
 # 필요한 것 (저장소 Settings → Secrets and variables → Actions 에 한 번만 넣으면 됨)
 #   CLOUDFLARE_API_TOKEN  : 클라우드플레어 API 토큰 (Workers 편집 + Pages 편집 + KV 편집 권한)
 #   CLOUDFLARE_ACCOUNT_ID : 클라우드플레어 계정 ID
+#   GH_ACTIONS_TOKEN      : (선택) 깃허브 열쇠 — 운영진 화면 [적용]이 바로 빠른 갱신을 돌리게 함
+#                           이 저장소만, 권한 'Actions: Read and write' 인 fine-grained 토큰
 # 둘 중 하나라도 없으면 아무것도 안 하고 "설정이 필요합니다" 만 남기고 끝난다.
 #
 # 올리기 전에 하는 일 (복제 방지)
@@ -28,6 +30,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_ACTIONS_TOKEN: ${{ secrets.GH_ACTIONS_TOKEN }}
     steps:
       - name: 설정 확인
         id: chk
@@ -55,6 +58,11 @@ jobs:
           KV=$(bash tools/kvns.sh)
           sed -i "s/__KV_ID__/$KV/" worker/wrangler.toml
           cd worker && npx --yes wrangler@3 deploy
+          if [ -n "$GH_ACTIONS_TOKEN" ]; then
+            printf '%s' "$GH_ACTIONS_TOKEN" | npx --yes wrangler@3 secret put GH_TOKEN >/dev/null && echo "깃허브 열쇠 넣음(바로 반영 켜짐)"
+          else
+            echo "::notice::GH_ACTIONS_TOKEN 이 없어 운영진 [적용]의 바로 반영은 꺼져 있습니다 (매일 아침 반영)."
+          fi
 
       - name: 사이트 묶기 (난독화 · 데이터 섞기)
         if: steps.chk.outputs.go == '1'
