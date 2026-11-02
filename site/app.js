@@ -227,7 +227,7 @@ function hotData() {
 function tickerItems() {
   const { up, ups } = hotData();
   const sets = G.slice(-12).reverse().map(g => `<span class="it"><span class="when">${fmtD(g[0]).slice(5)}</span><span class="lg">${esc(D.leagues[g[1]].name)}</span><span class="won">${esc(P[g[3]].id)}</span> 승 <span>(vs <b>${esc(P[g[4]].id)}</b>)</span></span>`);
-  const rise = up.slice(0, 3).map(x => `<span class="it"><span class="ntag up">급상승</span><b>${esc(x.p.id)}</b> <span class="won">▲${r0(x.d)}</span> <span class="when">${r0(x.p.r)}점</span></span>`);
+  const rise = up.slice(0, 3).map(x => `<span class="it"><span class="ntag up">ELO급상승</span><b>${esc(x.p.id)}</b> <span class="won">▲${r0(x.d)}</span> <span class="when">${r0(x.p.r)}점</span></span>`);
   const upset = ups.slice(0, 5).map(x => `<span class="it"><span class="ntag ups">이변</span><span class="won">${esc(P[x.g[3]].id)}</span><span class="when">${r0(x.wr)}</span> 승 <span>(vs <b>${esc(P[x.g[4]].id)}</b> <span class="when">${r0(x.lr)}</span>)</span></span>`);
   return [...sets, ...rise, ...upset].join("");
 }

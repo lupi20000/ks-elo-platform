@@ -666,6 +666,11 @@ def main():
                             "msg": f"{len(sets)}세트 중 {added}세트 반영", "at": NOW.strftime("%Y-%m-%d %H:%M")}
     json.dump(srcstat, open(SRCSTAT_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     games.sort(key=lambda g: g["d"])
+    # 'KPL'은 운영진이 '리그 시트 등록'에 넣은 진행 중 KPL 시트의 경기만. 나머지 KPL 경기는 모두 '前 KPL'
+    live_names = {x.get("name") for x in live_srcs}
+    for g in games:
+        if re.match(r"KPL\b", g["lg"] or "") and g.get("src") not in live_names:
+            g["lg"] = "前 " + g["lg"]
 
     # 명단: 활동/휴면 + 현재 티어·종족 (이름 열은 읽지 않는다)
     roster_info = {}
