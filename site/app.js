@@ -686,6 +686,19 @@ function viewStats(tab = "league") {
       <div class="card"><h3>티어별 인원<em>정식 순위 선수 ${cnt.reduce((a, c) => a + c.n, 0)}명</em></h3>${tierBell(cnt)}</div></div>
       <div class="card" style="margin-top:14px"><h3>티어별 ELO 분포<em>점 = 선수 · 상자 = 가운데 절반 · 선 = 중앙값</em></h3>${tierSpread()}</div>`;
   }
+  if (tab === "tier") {
+    const svg = sv.querySelector(".spread");
+    if (svg) svg.addEventListener("click", e => {
+      const tip = svg.querySelector(".stip"), d = e.target.closest(".sdot");
+      if (e.target.closest(".stip a")) return;
+      svg.querySelectorAll(".sdot.on").forEach(x => x.classList.remove("on"));
+      if (!d) { tip.innerHTML = ""; return; }
+      d.classList.add("on");
+      const p = P[+d.dataset.i], x = +d.dataset.x, y = +d.dataset.y, label = `${p.id} ${r0(p.r)}`, w = label.length * 11.5 + 22;
+      const bx = Math.max(2, Math.min(640 - w - 2, x - w / 2));
+      tip.innerHTML = `<a href="${pLink(p.i)}"><rect x="${bx}" y="${y - 44}" width="${w}" height="32" rx="6" class="stipbg"/><text x="${bx + w / 2}" y="${y - 22}" text-anchor="middle" class="stiptx">${esc(label)}</text></a><line x1="${x}" x2="${x}" y1="${y - 12}" y2="${y - 4}" class="stipln"/>`;
+    });
+  }
   if (tab === "rec") sv.innerHTML = records();
   if (tab === "race" || tab === "map") {
     const pairs = [["P", "T"], ["P", "Z"], ["T", "Z"]];
@@ -717,7 +730,7 @@ function viewStats(tab = "league") {
 }
 
 function tierSpread() {
-  const rows = T.map(t => ({ t, v: ranked.filter(p => p.tier === t).map(p => p.r).sort((a, b) => a - b) })).filter(x => x.v.length);
+  const rows = T.map(t => { const ps = ranked.filter(p => p.tier === t).sort((a, b) => a.r - b.r); return { t, ps, v: ps.map(p => p.r) }; }).filter(x => x.v.length);
   if (!rows.length) return `<div class="empty">자료가 없습니다</div>`;
   const all = rows.flatMap(x => x.v), lo = Math.floor(Math.min(...all) / 50) * 50, hi = Math.ceil(Math.max(...all) / 50) * 50;
   const W = 640, pl = 84, pr = 16, rh = 44, pt = 14, H = pt + rows.length * rh + 30, X = v => pl + (v - lo) / (hi - lo || 1) * (W - pl - pr);
@@ -729,9 +742,9 @@ function tierSpread() {
       return `<g style="--tc:${tc(x.t)}"><text x="${pl - 10}" y="${y + 6}" text-anchor="end" class="st">${x.t}</text>
         <line x1="${X(x.v[0])}" x2="${X(x.v.at(-1))}" y1="${y}" y2="${y}" style="stroke:var(--tc);stroke-width:1.5;opacity:.6"/>
         <rect x="${X(q1)}" y="${y - 10}" width="${Math.max(2, X(q3) - X(q1))}" height="20" rx="4" style="fill:var(--tc);fill-opacity:.22;stroke:var(--tc);stroke-width:1.5"><title>${x.t} ${x.v.length}명 · 가운데 절반 ${r0(q1)}~${r0(q3)} · 중앙값 ${r0(md)} · 최저 ${r0(x.v[0])} · 최고 ${r0(x.v.at(-1))}</title></rect>
-        ${x.v.map((v, n) => `<circle cx="${X(v)}" cy="${y + ((n * 7) % 13) - 6}" r="2.2" style="fill:var(--tc);opacity:.75"/>`).join("")}
+        ${x.v.map((v, n) => { const cx = X(v), cy = y + ((n * 7) % 13) - 6; return `<g class="sdot" data-i="${x.ps[n].i}" data-x="${cx.toFixed(1)}" data-y="${cy}"><circle cx="${cx}" cy="${cy}" r="2.6" style="fill:var(--tc);opacity:.8"/><circle cx="${cx}" cy="${cy}" r="8" style="fill:transparent"/></g>`; }).join("")}
         <line x1="${X(md)}" x2="${X(md)}" y1="${y - 12}" y2="${y + 12}" style="stroke:var(--ink);stroke-width:2.5"/>
-        <text x="${X(md)}" y="${y - 15}" text-anchor="middle" class="sm">${r0(md)}</text></g>`; }).join("")}</svg>`;
+        <text x="${X(md)}" y="${y - 15}" text-anchor="middle" class="sm">${r0(md)}</text></g>`; }).join("")}<g class="stip"></g></svg>`;
 }
 
 /* ---------- 기록실 ---------- */
