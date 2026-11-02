@@ -695,13 +695,6 @@ body.noscroll{overflow:hidden}
 .lfmt .tbu{flex:1 1 260px}.lfmt .tbu input{flex:1;min-width:0}
 .spread .sdot{cursor:pointer}.spread .sdot.on circle:first-child{r:5;opacity:1;stroke:var(--ink);stroke-width:1.5}
 .spread .stipbg{fill:var(--ink);opacity:.92}.spread .stiptx{font:800 19px var(--body);fill:var(--slab)}.spread .stipln{stroke:var(--ink);stroke-width:1.5}
-/* 종족 상성 삼각형 */
-.tri{display:block;width:100%;max-width:420px;margin:0 auto}
-.tri .tv{font:900 17px var(--disp);fill:#fff}.tri.mini .tv{font-size:14px}.tri.mini circle[r="10"]{r:13}
-.tri .tl{font:800 15px var(--disp);fill:var(--ink)}.tri.mini .tl{font-size:19px}
-.tri .tn{font:500 10px var(--data);fill:var(--ink3)}
-.tris{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}@media(min-width:760px){.tris{grid-template-columns:repeat(4,1fr)}}
-.tris .card{padding:12px}.tris .card h3{font-size:14px;margin-bottom:6px}
 /* 선수 종족별 승률 레이더 */
 .idrow{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
 .idradar{width:150px;flex:none;margin-bottom:-6px}

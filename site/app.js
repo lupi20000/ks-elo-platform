@@ -716,18 +716,12 @@ function viewStats(tab = "league") {
       const avg = r => { const L = ranked.filter(p => p.race === r); return L.length ? r0(L.reduce((s, p) => s + p.r, 0) / L.length) : "—"; };
       sv.innerHTML = `<div class="stats" style="margin-bottom:10px">${RN.map(r => `<div><b class="num" style="color:var(--${r})">${pop[r]}명</b><span>${RACE_KO[r]} · 평균 ELO ${avg(r)}</span></div>`).join("")}
         <div><b class="num">${pctS(tot.mirror, tot.n)}</b><span>동족전 비율</span></div></div>
-        <div class="grid c2" style="margin-top:0"><div class="card"><h3>종족 상성도<em>변의 색 길이 = 두 종족 승률 · 흰 점이 가운데서 멀수록 한쪽이 유리</em></h3>${raceTri(tot)}</div>${card(tot, "전체 종족 상성")}</div>
-        <div class="h3">연도별<em>삼각형이 해마다 어떻게 기울었는지</em></div><div class="tris">${Object.keys(years).sort().reverse().map(y => `<div class="card"><h3>${y}년<em>${years[y].n.toLocaleString()}세트</em></h3>${raceTri(years[y], 220, true)}</div>`).join("")}</div>
-        <div class="grid c2">${Object.keys(years).sort().reverse().map(y => card(years[y], y + "년")).join("")}</div>
+        <div class="grid c2" style="margin-top:0">${card(tot, "전체 종족 상성")}${Object.keys(years).sort().reverse().map(y => card(years[y], y + "년")).join("")}</div>
         <p class="legend">막대 왼쪽 색 = 앞 종족 승률. 각 세트 기록의 종족 기준(부종 포함).</p>`;
     } else {
       const mp = D.maps.map(() => mk());
       G.forEach(g => g[2] >= 0 && add(mp[g[2]], g));
-      const top = mp.map((o, k) => ({ o, k })).filter(x => x.o.n >= 20).sort((a, b) => b.o.n - a.o.n);
-      sv.innerHTML = `<div class="h3" style="margin-top:0">맵별 종족 밸런스<em>20세트 이상 맵 · 많이 쓴 순 · 숫자 = 유리한 쪽 승률 %</em></div>
-        <div class="tris maps">${top.map(({ o, k }) => `<div class="card"><h3>${esc(D.maps[k])}<em>${o.n.toLocaleString()}세트</em></h3>${raceTri(o, 220, true)}</div>`).join("")}</div>
-        <div class="h3">표로 보기</div>
-        <div class="panel scroll"><table class="tbl"><thead><tr><th>맵</th><th class="r">세트</th><th class="r">PvT</th><th class="r">PvZ</th><th class="r">TvZ</th></tr></thead><tbody>
+      sv.innerHTML = `<div class="panel scroll"><table class="tbl"><thead><tr><th>맵</th><th class="r">세트</th><th class="r">PvT</th><th class="r">PvZ</th><th class="r">TvZ</th></tr></thead><tbody>
         ${mp.map((o, k) => ({ o, k })).filter(x => x.o.n >= 20).sort((a, b) => b.o.n - a.o.n).map(({ o, k }) => `<tr class="static"><td class="nm">${esc(D.maps[k])}</td><td class="r num rt">${o.n}</td>
           ${pairs.map(([a, b]) => { const s = o[a + b], v = pct(s.w, s.n); return `<td class="r num" style="font-size:16px;color:${!s.n ? "var(--ink3)" : v >= 55 ? `var(--${a})` : v <= 45 ? `var(--${b})` : "var(--ink)"}">${pctS(s.w, s.n)} <span style="color:var(--ink3);font-size:11px">${s.n}</span></td>`; }).join("")}</tr>`).join("")}
         </tbody></table></div><p class="legend">20세트 이상 맵 · 수치는 앞 종족 승률 · 55% 이상/45% 이하는 유리 종족 색</p>`;
@@ -735,25 +729,6 @@ function viewStats(tab = "league") {
   }
 }
 
-// 종족 상성 삼각형: 꼭짓점 P(위)·T(왼쪽 아래)·Z(오른쪽 아래), 각 변은 두 종족 승률만큼 색을 나눠 칠한다
-// mu = { PT:{w,n}, PZ:{w,n}, TZ:{w,n} }  (w = 앞 종족 승수)
-function raceTri(mu, size = 300, mini = false) {
-  const W = mini ? size : size * 1.35, H = size * (mini ? 1 : .95), m = mini ? 22 : 40, mx = mini ? m : m + size * .2;
-  const V = { P: [W / 2, m], T: [mx, H - m * (mini ? 1.5 : 1.6)], Z: [W - mx, H - m * (mini ? 1.5 : 1.6)] };
-  const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-  const edge = (a, b) => { const o = mu[a + b] || { w: 0, n: 0 }, t = o.n ? o.w / o.n : .5, c = lerp(V[a], V[b], t), mid = lerp(V[a], V[b], .5);
-    const nx = (V[b][1] - V[a][1]), ny = -(V[b][0] - V[a][0]), L = Math.hypot(nx, ny), cx = W / 2, cy = H * .6;
-    let ox = nx / L, oy = ny / L; if ((mid[0] + ox - cx) ** 2 + (mid[1] + oy - cy) ** 2 < (mid[0] - cx) ** 2 + (mid[1] - cy) ** 2) { ox = -ox; oy = -oy; }
-    const lx = mid[0] + ox * (mini ? 12 : 18), ly = mid[1] + oy * (mini ? 12 : 18) + (oy > .5 ? (mini ? 10 : 14) : 0), sw = mini ? 6 : 11;
-    const anc = ox < -.3 ? "end" : ox > .3 ? "start" : "middle";
-    const lead = !o.n ? "" : t >= .5 ? a : b;
-    return `<line x1="${V[a][0]}" y1="${V[a][1]}" x2="${c[0]}" y2="${c[1]}" style="stroke:var(--${a});stroke-width:${sw}"/><line x1="${c[0]}" y1="${c[1]}" x2="${V[b][0]}" y2="${V[b][1]}" style="stroke:var(--${b});stroke-width:${sw}"/>
-      <circle cx="${c[0]}" cy="${c[1]}" r="${mini ? 3 : 5}" style="fill:var(--slab);stroke:var(--ink);stroke-width:1.5"/>
-      ${mini ? (o.n ? `<text x="${lx}" y="${ly + 5}" text-anchor="${anc}" class="tl" style="fill:var(--${lead})">${Math.round(Math.max(t, 1 - t) * 100)}</text>` : "")
-        : `<text x="${lx}" y="${ly - 2}" text-anchor="${anc}" class="tl">${o.n ? `<tspan style="fill:var(--${a})">${(t * 100).toFixed(1)}</tspan> : <tspan style="fill:var(--${b})">${((1 - t) * 100).toFixed(1)}</tspan>` : "—"}</text><text x="${lx}" y="${ly + 14}" text-anchor="${anc}" class="tn">${a}v${b} · ${o.n.toLocaleString()}세트</text>`}`; };
-  const node = r => `<circle cx="${V[r][0]}" cy="${V[r][1]}" r="${mini ? 10 : 19}" style="fill:var(--${r})"/><text x="${V[r][0]}" y="${V[r][1] + (mini ? 4 : 7)}" text-anchor="middle" class="tv">${r}</text>`;
-  return `<svg class="tri ${mini ? "mini" : ""}" viewBox="0 0 ${W} ${H}" style="aspect-ratio:${W}/${H}">${edge("P", "T")}${edge("P", "Z")}${edge("T", "Z")}${RN.map(node).join("")}</svg>`;
-}
 // 선수 종족별 승률 삼각 레이더: 꼭짓점 = vs P / vs T / vs Z, 중심 0% · 바깥 100% · 점선 50%
 function raceRadar(vs, size = 150) {
   const W = size, c = [W / 2, W * .55], R = W * .3, ang = { P: -90, T: 150, Z: 30 };
