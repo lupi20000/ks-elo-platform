@@ -1,0 +1,20 @@
+name: 쉴드배터리 점검 (일회용)
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in "https://shieldbattery.net/" \
+                   "https://shieldbattery.net/api/1/ladder/1v1" \
+                   "https://shieldbattery.net/api/1/ladder/1v1?limit=3" \
+                   "https://shieldbattery.net/api/1/ladder/1v1?searchStr=ks" \
+                   "https://shieldbattery.net/api/1/users/1" \
+                   "https://shieldbattery.net/api/1/users/1/profile" \
+                   "https://shieldbattery.net/api/1/users/batch-info?u=1" \
+                   "https://shieldbattery.net/api/1/matchmakingSeasons" \
+                   "https://shieldbattery.net/api/1/ladder/current-season" ; do
+            echo "=================== $u"
+            curl -s -m 25 -A "Mozilla/5.0" -o /tmp/o -w "HTTP %{http_code} %{content_type} %{size_download}B\n" "$u" || true
+            head -c 700 /tmp/o | tr '\n' ' '; echo
+          done
