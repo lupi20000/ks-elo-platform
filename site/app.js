@@ -969,7 +969,7 @@ async function api(path, body) {
 async function viewAdmin(tab) {
   if (!TOK.get() || !(await api("/me")).ok) return adminGate();
   tab = tab === "src" ? "health" : tab || "league";      // 예전 'ELO 시트 등록' 주소는 데이터 탭으로
-  const tabs = { league: "리그 시트 등록", games: "ELO 입력값", promo: "등급조정", lad: "래더 관리", health: "데이터" };
+  const tabs = { league: "리그 시트 등록", promo: "등급조정", games: "ELO 입력값 수정", lad: "래더 입력값 수정", health: "데이터" };
   app.innerHTML = `<div class="h"><h2><small>운영진 전용 · 이 화면의 내용은 공개 화면에 나오지 않습니다</small><span class="gold">운영진</span> <span class="kr">관리</span></h2>
     <div class="aside"><button class="btn sm" id="logout">로그아웃</button></div></div>
     ${D.meta.gaps.length ? `<div class="notice red"><b>!</b><div>${D.meta.gaps.map(esc).join("<br>")}</div></div>` : ""}
@@ -993,7 +993,7 @@ function adminGate() {
 }
 const COLS = [["date", "날짜"], ["winner", "승자"], ["loser", "패자"], ["map", "맵"], ["league", "리그(열)"], ["wrace", "승자 종족"], ["lrace", "패자 종족"], ["year", "연"], ["month", "월"], ["day", "일"]];
 // live=false: ELO 데이터 시트 · live=true: 진행 중 리그 시트(사이트 '리그' 화면에 따로 나옴, 완료 → ELO 시트로 이동)
-async function adminSources(el, live) {
+async function adminSources(el, live, flash) {
   el.innerHTML = `<div class="loading"><span></span>불러오는 중</div>`;
   const r = await api("/sources");
   if (!r.ok) { el.innerHTML = `<div class="notice red"><b>!</b><div>${esc(r.msg)}</div></div>`; return; }
@@ -1005,7 +1005,7 @@ async function adminSources(el, live) {
   el.innerHTML = `${live ? `<div class="notice"><b>!</b><div>지금 <b>진행 중인 리그</b>의 시트를 넣는 곳입니다. 넣으면 사이트 <b>리그</b> 화면에 KPL처럼 따로 나오고, 경기는 ELO에도 바로 반영됩니다. 리그마다 <b>방식</b>(풀리그 / 조별리그→토너먼트 / 토너먼트 / 시트 대진표 그대로)을 고르면 그 방식에 맞는 표·대진표로 보여 줍니다. 더블 엘리미네이션처럼 시트에 대진표가 이미 그려져 있으면 <b>시트 대진표 그대로</b>를 고르고 그 탭 주소를 넣으세요. 리그가 끝나면 <b>완료</b>를 누르세요 — 리그 화면에서 빠지고 <b>데이터</b> 탭의 지난 시트 목록으로 옮겨집니다.</div></div>` : ""}
     <div class="card hl"><h3>${live ? "진행 중 리그 시트 추가" : "지난 시트 추가"}<em>시트 링크를 붙이면 바로 구조를 분석합니다</em></h3>
       <div class="form-grid"><div class="fld wide"><label for="s_url">구글 시트 링크</label><input id="s_url" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"></div></div>
-      <div class="btns"><button class="btn pri" id="s_an">시트 분석</button><span class="msg" id="s_msg">시트 공유가 「링크가 있는 모든 사용자 — 뷰어」여야 읽을 수 있습니다.</span></div>
+      <div class="btns"><button class="btn pri" id="s_an">시트 분석</button><span class="${flash ? "msg ok" : "msg"}" id="s_msg">${flash ? "✔ " + esc(flash) : "시트 공유가 「링크가 있는 모든 사용자 — 뷰어」여야 읽을 수 있습니다. 링크를 넣고 [시트 분석] → [적용]"}</span></div>
       <div id="s_res"></div></div>
     <div class="h3">${live ? "진행 중 리그" : "등록된 지난 시트"}<em>${list.length}개 · 매일 아침 자동 수집</em></div>
     <div class="panel srcs">${list.map(s => `<div class="src" data-id="${esc(s.id)}"><div><b>${esc(s.name)}</b>
@@ -1036,7 +1036,7 @@ async function adminSources(el, live) {
     const good = a.tabs.filter(t => t.ok);
     $("#s_msg").className = good.length ? "msg ok" : "msg no";
     $("#s_msg").textContent = good.length ? `분석 완료: 경기 기록으로 보이는 탭 ${good.length}개를 찾았습니다.` : "경기 기록 형식을 자동으로 못 찾았습니다. 아래에서 열을 직접 골라 주세요.";
-    sourceEditor($("#s_res"), a, url, () => adminSources(el, live), live ? "live" : "");
+    sourceEditor($("#s_res"), a, url, m => adminSources(el, live, m), live ? "live" : "");
   };
 }
 function sourceEditor(box, a, url, done, stage = "") {
@@ -1054,7 +1054,7 @@ function sourceEditor(box, a, url, done, stage = "") {
       <div class="h3" style="font-size:16px">열 지정<em>자동으로 찾은 값 · 틀리면 고쳐 주세요</em></div>
       <div class="colmap">${COLS.map(([k, l]) => `<div class="fld"><label>${l}</label><select data-col="${k}">${opt(mp.cols?.[k] ?? null)}</select></div>`).join("")}</div>
       <label class="keep" style="display:flex;gap:8px;margin:12px 0;font-size:12.5px;color:var(--ink2)"><input type="checkbox" id="e_fill" ${mp.fillDown?.length ? "checked" : ""}> 날짜·리그가 경기 묶음 첫 줄에만 적혀 있음 (아래 줄로 채우기)</label>
-      <div class="btns"><button class="btn" id="e_pv">미리보기</button><button class="btn pri" id="e_save">이대로 등록</button><span class="msg" id="e_msg"></span></div>
+      <div class="btns"><button class="btn" id="e_pv">미리보기</button><button class="btn pri" id="e_save">적용</button><span class="msg" id="e_msg"></span></div>
       <div id="e_sample">${sampleTable(cur.sample)}</div>`;
     $("#tabsel").onclick = e => { const g = e.target.closest("[data-gid]")?.dataset.gid; if (g != null) { cur = a.tabs.find(t => t.gid === g); draw(); } };
     const readMp = () => {
@@ -1072,8 +1072,12 @@ function sourceEditor(box, a, url, done, stage = "") {
       const mp2 = readMp();
       if (mp2.cols.winner == null || mp2.cols.loser == null) { $("#e_msg").className = "msg no"; $("#e_msg").textContent = "승자·패자 열은 꼭 골라야 합니다."; return; }
       const lg = $("#e_lg").value.trim(); if (!lg) { $("#e_msg").className = "msg no"; $("#e_msg").textContent = "리그 이름을 적어 주세요."; return; }
+      $("#e_save").disabled = true; $("#e_msg").className = "msg"; $("#e_msg").innerHTML = `<span class="spin"></span> 시트에서 경기를 모으는 중…`;
+      const p = await api("/sources/preview", { sheet: a.sheet, gid: cur.gid, mapping: mp2 });
+      if (!p.ok || !p.games) { $("#e_save").disabled = false; $("#e_msg").className = "msg no"; $("#e_msg").textContent = p.ok ? "경기를 하나도 못 읽었습니다. 열 지정을 확인해 주세요." : p.msg; if (p.ok) $("#e_sample").innerHTML = sampleTable(p.sample); return; }
       const s = await api("/sources/save", { source: { name: $("#e_name").value.trim(), league: lg, weight: +$("#e_w").value || 1, url, sheet: a.sheet, gid: cur.gid, mapping: mp2, enabled: true, stage } });
-      if (s.ok) done(); else { $("#e_msg").className = "msg no"; $("#e_msg").textContent = s.msg; }
+      if (s.ok) done(`수집 완료 · ${$("#e_name").value.trim() || "시트"} ${p.games}경기 확인 — 순위에는 다음 아침 갱신 때 반영됩니다`);
+      else { $("#e_save").disabled = false; $("#e_msg").className = "msg no"; $("#e_msg").textContent = s.msg; }
     };
   };
   draw();
