@@ -1,0 +1,16 @@
+{
+  "name": "KS ELO",
+  "short_name": "KS ELO",
+  "description": "kS 클랜 ELO 순위 · 리그 · 분석 · 맞대결 · 래더",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f2ec",
+  "theme_color": "#c4702e",
+  "lang": "ko",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

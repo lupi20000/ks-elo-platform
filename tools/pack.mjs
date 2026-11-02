@@ -30,6 +30,10 @@ let html = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
 html = html.replace(/\n\s+/g, '\n');
 fs.writeFileSync(path.join(OUT, 'index.html'), html);
 
+// 홈 화면 바로가기(앱 아이콘·이름)
+fs.copyFileSync(path.join(SRC, 'manifest.webmanifest'), path.join(OUT, 'manifest.webmanifest'));
+fs.cpSync(path.join(SRC, 'icons'), path.join(OUT, 'icons'), { recursive: true });
+
 fs.writeFileSync(path.join(OUT, 'robots.txt'), [
   'User-agent: GPTBot', 'Disallow: /', '',
   'User-agent: ChatGPT-User', 'Disallow: /', '',
